@@ -28,14 +28,16 @@ class Collection_Database():
 
     def register_video_game(self, title):
         GB_API_KEY = secrets['Giant_Bomb_API_Key']
-        req = requests.get("http://www.giantbomb.com/api/search/?api_key={}&format=json&query="{}"&resources=game".format(GB_API_KEY, title))
+        header = {'User-Agent': 'Asylumrunner_Database_Tool'}
+        req = requests.get("http://www.giantbomb.com/api/search/?api_key={}&format=json&query=%22{}%22&resources=game".format(GB_API_KEY, title), headers=header)
         data = req.json()
 
         games = [game['name'] for game in data['results']]
         print("The following games were retrieved:")
         for x in range(len(games)):
             print("{}. {}".format(x, games[x]))
-        choice = input("Please indicate the number of the game to insert into the database, or QUIT")
+        print("Please indicate the number of the game to insert into the database, or QUIT")
+        choice = input("Choice: ")
 
         invalid_choice = True
         while invalid_choice:
@@ -50,7 +52,7 @@ class Collection_Database():
                     print("Invalid choice")
                     choice = input("Please indicate the number of the game to insert into the database, or QUIT")
 
-        req = requests.get("http://www.giantbomb.com/api/game/{}/?api_key={}".format(guid, GB_API_KEY))
+        req = requests.get("http://www.giantbomb.com/api/game/{}/?api_key={}&format=json".format(guid, GB_API_KEY), headers=header)
         data = req.json()
 
         developers = [dev['name'] for dev in data['results']['developers']]
@@ -58,7 +60,7 @@ class Collection_Database():
 
         platforms = [platform['name'] for platform in data['results']['platforms']]
         print("{} is available on the following platforms:")
-        for x in range(len(platform)):
+        for x in range(len(platforms)):
             print("{}. {}".format(x, platforms[x]))
         choice = input("What platform is your copy? :")
 
@@ -76,3 +78,13 @@ class Collection_Database():
         self.cursor.execute("INSERT INTO video_games VALUES(?, ?, ?, ?);", [game, platform, True, dev_string])
         self.connection.commit()
         return True
+
+    def view_video_games(self):
+        self.cursor.execute("SELECT * FROM video_games ORDER BY name DESC;")
+        results = self.cursor.fetchall()
+        for row in results:
+            print(row)
+
+    def wipe_database(self):
+        self.cursor.execute("DROP TABLE video_games;")
+        self.connection.commit()
