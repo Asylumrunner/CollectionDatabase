@@ -1,6 +1,7 @@
 import sqlite3
 import requests
 import json
+import xml.etree.ElementTree as ET
 from secrets import secrets
 
 class Collection_Database():
@@ -12,7 +13,7 @@ class Collection_Database():
         self.connection.commit()
         self.cursor.execute("CREATE TABLE IF NOT EXISTS books (name text, author text, page_count integer, in_collection boolean);")
         self.connection.commit()
-        self.cursor.execute("CREATE TABLE IF NOT EXISTS tabletop_rpgs (name text, in_collection boolean);")
+        self.cursor.execute("CREATE TABLE IF NOT EXISTS tabletop_rpgs (name text, publisher text, in_collection boolean);")
         self.connection.commit()
 
     def register_item(self, table_name, key):
@@ -25,6 +26,64 @@ class Collection_Database():
         else:
             print("Invalid table name provided. Cannot add to table")
             raise KeyError
+
+    def register_tabletop_rpg(self, title):
+        req = requests.get("https://www.rpggeek.com/xmlapi2/search?query={}&type=rpgitem".format(title))
+        tree = ET.parse(req.text)
+        root = tree.getroot()
+
+        responses_dict = {}
+        for child in root:
+            subelement = child.iterfind('name')
+            responses_dict[subelement.get('value', 'ERROR')] = child.get('id', '00000')
+        book_titles = responses_dict.keys()
+
+        print("The following RPG items were retrieved:"):
+        for x in range(len(book_titles)):
+            print("{}. {}".format(x,, book_titles[x]))
+        print("Please indicate the number of the game to insert into the database, or QUIT")
+        choice = input("Choice: ")
+
+        invalid_choice = True
+        while invalid_choice:
+            if choice == "QUIT":
+                return True
+            else:
+                try:
+                    game = book_titles[int(choice)]
+                    id = responses_dict[game]
+                    invalid_choice = False
+                except Exception:
+                    print("Invalid choice")
+                    choice = input("Please indicate the number of the game to insert into the database, or QUIT")
+
+        req = requests.get("https://www.rpggeek.com/xmlapi2/thing?id={}".format(id))
+        tree = ET.parse(req.text)
+        root = tree.getroot()
+        publishers = root.findall("./item/[@type='rpgpublisher']")
+        publisher_names = [elem.get('value') for elem in publishers]
+
+        print("This game is associated with the following publishers: ")
+        for x in range(len(publisher_names)):
+            print("{}. {}".format(x, publisher_names[x]))
+
+        rint("Please indicate the number of the publisher to associate with this game, or QUIT")
+        choice = input("Choice: ")
+
+        invalid_choice = True
+        while invalid_choice:
+            if choice == "QUIT":
+                return True
+            else:
+                try:
+                    publisher = publisher_names[int(choice)]
+                except Exception:
+                    print("Invalid choice")
+                    choice = input("Please indicate the number of the publisher to associate with this game, or QUIT")
+
+        self.cursor.execute("INSERT INTO tabletop_rpgs VALUES(?, ?, ?);", [game, publisher, True])
+        self.connection.commit()
+        return True
 
     def register_video_game(self, title):
         GB_API_KEY = secrets['Giant_Bomb_API_Key']
