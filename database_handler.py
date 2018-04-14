@@ -11,7 +11,7 @@ class Collection_Database():
 
         self.cursor.execute("CREATE TABLE IF NOT EXISTS video_games (name text, platform text, in_collection boolean, developer text);")
         self.connection.commit()
-        self.cursor.execute("CREATE TABLE IF NOT EXISTS books (name text, author text, page_count integer, in_collection boolean);")
+        self.cursor.execute("CREATE TABLE IF NOT EXISTS books (name text, author text, in_collection boolean);")
         self.connection.commit()
         self.cursor.execute("CREATE TABLE IF NOT EXISTS tabletop_rpgs (name text, publisher text, in_collection boolean);")
         self.connection.commit()
@@ -26,6 +26,43 @@ class Collection_Database():
         else:
             print("Invalid table name provided. Cannot add to table")
             raise KeyError
+
+    def register_book(self, title):
+        GR_API_KEY = secrets['Goodreads_API_Key']
+        req = requests.get("https://www.goodreads.com/search/index.xml?key={}&q={}".format(GR_API_KEY, title))
+        root = ET.fromstring(req.content)
+
+        responses_dict = {}
+        results = root.find('./search/results')
+        for title in results:
+            name = (title.find('./best_book/title')).text
+            responses_dict[name] = title
+        book_titles = list(responses_dict.keys())
+
+        print("The following books were retrieved:")
+        for x in range(len(book_titles)):
+            print("{}. {}".format(x, book_titles[x]))
+        print("Please indicate the number of the book to insert into the database, or QUIT")
+        choice = input("Choice: ")
+
+        invalid_choice = True
+        while invalid_choice:
+            if choice == "QUIT":
+                return True
+            else:
+                try:
+                    book = book_titles[int(choice)]
+                    data = responses_dict[book]
+                    invalid_choice = False
+                except Exception:
+                    print("Invalid choice")
+                    choice = input("Please indicate the number of the game to insert into the database, or QUIT")
+
+        author = (data.find('./best_book/author/name')).text
+
+        self.cursor.execute("INSERT INTO books VALUES(?, ?, ?);", [book, author, True])
+        self.connection.commit()
+        return True
 
     def register_tabletop_rpg(self, title):
         req = requests.get("https://www.rpggeek.com/xmlapi2/search?query={}&type=rpgitem".format(title))
