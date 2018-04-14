@@ -29,18 +29,18 @@ class Collection_Database():
 
     def register_tabletop_rpg(self, title):
         req = requests.get("https://www.rpggeek.com/xmlapi2/search?query={}&type=rpgitem".format(title))
-        tree = ET.parse(req.text)
-        root = tree.getroot()
+        root = ET.fromstring(req.content)
 
         responses_dict = {}
         for child in root:
-            subelement = child.iterfind('name')
-            responses_dict[subelement.get('value', 'ERROR')] = child.get('id', '00000')
-        book_titles = responses_dict.keys()
+            subelements = child.iterfind('name')
+            for element in subelements:
+                responses_dict[element.get('value', 'ERROR')] = child.get('id', '00000')
+        book_titles = list(responses_dict.keys())
 
-        print("The following RPG items were retrieved:"):
+        print("The following RPG items were retrieved:")
         for x in range(len(book_titles)):
-            print("{}. {}".format(x,, book_titles[x]))
+            print("{}. {}".format(x, book_titles[x]))
         print("Please indicate the number of the game to insert into the database, or QUIT")
         choice = input("Choice: ")
 
@@ -58,16 +58,16 @@ class Collection_Database():
                     choice = input("Please indicate the number of the game to insert into the database, or QUIT")
 
         req = requests.get("https://www.rpggeek.com/xmlapi2/thing?id={}".format(id))
-        tree = ET.parse(req.text)
-        root = tree.getroot()
-        publishers = root.findall("./item/[@type='rpgpublisher']")
+        print("https://www.rpggeek.com/xmlapi2/thing?id={}".format(id))
+        root = ET.fromstring(req.content)
+        publishers = root.findall(".//*[@type='rpgpublisher']")
         publisher_names = [elem.get('value') for elem in publishers]
 
         print("This game is associated with the following publishers: ")
         for x in range(len(publisher_names)):
             print("{}. {}".format(x, publisher_names[x]))
 
-        rint("Please indicate the number of the publisher to associate with this game, or QUIT")
+        print("Please indicate the number of the publisher to associate with this game, or QUIT")
         choice = input("Choice: ")
 
         invalid_choice = True
@@ -77,6 +77,7 @@ class Collection_Database():
             else:
                 try:
                     publisher = publisher_names[int(choice)]
+                    invalid_choice = False
                 except Exception:
                     print("Invalid choice")
                     choice = input("Please indicate the number of the publisher to associate with this game, or QUIT")
@@ -144,6 +145,15 @@ class Collection_Database():
         for row in results:
             print(row)
 
+    def view_tabletop_rpgs(self):
+        self.cursor.execute("SELECT * FROM tabletop_rpgs ORDER BY name DESC;")
+        results = self.cursor.fetchall()
+        for row in results:
+            print(row)
+
     def wipe_database(self):
         self.cursor.execute("DROP TABLE video_games;")
+        self.connection.commit()
+
+        self.cursor.execute("DROP TABLE tabletop_rpgs;")
         self.connection.commit()
