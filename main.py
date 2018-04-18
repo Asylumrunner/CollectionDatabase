@@ -17,7 +17,8 @@ while choice != 4:
         print("Adding item to database")
         print("1. Video game")
         print("2. Tabletop RPG")
-        print("3. Back out")
+        print("3. Book")
+        print("4. Back out")
         sub_choice = int(input("Select an option: "))
         if sub_choice == 1:
             title = input("What game?: ")
@@ -25,8 +26,12 @@ while choice != 4:
         elif sub_choice == 2:
             title = input("What RPG?: ")
             db.register_item("tabletop_rpgs", title)
+        elif sub_choice == 3:
+            title = input("What book?: ")
+            db.register_item("books", title)
     elif choice == 2:
         db.wipe_database()
-    else:
+    elif choice == 3:
         db.view_video_games()
         db.view_tabletop_rpgs()
+        db.view_books()

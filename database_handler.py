@@ -41,7 +41,8 @@ class Collection_Database():
 
         print("The following books were retrieved:")
         for x in range(len(book_titles)):
-            print("{}. {}".format(x, book_titles[x]))
+            author = responses_dict[book_titles[x]].find('./best_book/author/name').text
+            print("{}. {} by {}".format(x+1, book_titles[x], author))
         print("Please indicate the number of the book to insert into the database, or QUIT")
         choice = input("Choice: ")
 
@@ -51,12 +52,12 @@ class Collection_Database():
                 return True
             else:
                 try:
-                    book = book_titles[int(choice)]
+                    book = book_titles[int(choice)-1]
                     data = responses_dict[book]
                     invalid_choice = False
                 except Exception:
                     print("Invalid choice")
-                    choice = input("Please indicate the number of the game to insert into the database, or QUIT")
+                    choice = input("Please indicate the number of the book to insert into the database, or QUIT")
 
         author = (data.find('./best_book/author/name')).text
 
@@ -77,7 +78,7 @@ class Collection_Database():
 
         print("The following RPG items were retrieved:")
         for x in range(len(book_titles)):
-            print("{}. {}".format(x, book_titles[x]))
+            print("{}. {}".format(x+1, book_titles[x]))
         print("Please indicate the number of the game to insert into the database, or QUIT")
         choice = input("Choice: ")
 
@@ -87,7 +88,7 @@ class Collection_Database():
                 return True
             else:
                 try:
-                    game = book_titles[int(choice)]
+                    game = book_titles[int(choice)-1]
                     id = responses_dict[game]
                     invalid_choice = False
                 except Exception:
@@ -102,7 +103,7 @@ class Collection_Database():
 
         print("This game is associated with the following publishers: ")
         for x in range(len(publisher_names)):
-            print("{}. {}".format(x, publisher_names[x]))
+            print("{}. {}".format(x+1, publisher_names[x]))
 
         print("Please indicate the number of the publisher to associate with this game, or QUIT")
         choice = input("Choice: ")
@@ -113,7 +114,7 @@ class Collection_Database():
                 return True
             else:
                 try:
-                    publisher = publisher_names[int(choice)]
+                    publisher = publisher_names[int(choice)-1]
                     invalid_choice = False
                 except Exception:
                     print("Invalid choice")
@@ -132,7 +133,7 @@ class Collection_Database():
         games = [game['name'] for game in data['results']]
         print("The following games were retrieved:")
         for x in range(len(games)):
-            print("{}. {}".format(x, games[x]))
+            print("{}. {}".format(x+1, games[x]))
         print("Please indicate the number of the game to insert into the database, or QUIT")
         choice = input("Choice: ")
 
@@ -142,8 +143,8 @@ class Collection_Database():
                 return True
             else:
                 try:
-                    game = games[int(choice)]
-                    guid = data['results'][int(choice)]['guid']
+                    game = games[int(choice)-1]
+                    guid = data['results'][int(choice)-1]['guid']
                     invalid_choice = False
                 except Exception:
                     print("Invalid choice")
@@ -156,15 +157,15 @@ class Collection_Database():
         dev_string = ", ".join(developers)
 
         platforms = [platform['name'] for platform in data['results']['platforms']]
-        print("{} is available on the following platforms:")
+        print("{} is available on the following platforms:".format(game))
         for x in range(len(platforms)):
-            print("{}. {}".format(x, platforms[x]))
+            print("{}. {}".format(x+1, platforms[x]))
         choice = input("What platform is your copy? :")
 
         invalid_choice = True
         while invalid_choice:
             try:
-                platform = platforms[int(choice)]
+                platform = platforms[int(choice)-1]
                 invalid_choice = False
             except Exception:
                 print("Invalid choice")
@@ -188,9 +189,18 @@ class Collection_Database():
         for row in results:
             print(row)
 
+    def view_books(self):
+        self.cursor.execute("SELECT * FROM books ORDER BY name DESC;")
+        results = self.cursor.fetchall()
+        for row in results:
+            print(row)
+
     def wipe_database(self):
         self.cursor.execute("DROP TABLE video_games;")
         self.connection.commit()
 
         self.cursor.execute("DROP TABLE tabletop_rpgs;")
+        self.connection.commit()
+
+        self.cursor.execute("DROP TABLE books;")
         self.connection.commit()
