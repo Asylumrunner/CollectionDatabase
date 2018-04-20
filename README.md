@@ -16,4 +16,4 @@ Why don't you just shut your mouth.
 ## APIs In Use
   * [Giant Bomb](https://www.giantbomb.com/api/) - Giant Bomb, on top of being a video game coverage website, also has an extensive wiki populated with information about games dating back to Tennis For Two. Combined with a fairly active dev community and a well-documented API, it is the obvious first choice for collecting data about video video games
   * [BoardGameGeek](https://boardgamegeek.com/wiki/page/BGG_XML_API2) - BGG is a monolithic database for information on tabletop games, completely incomparable across the board. While their API is XML-based (I'd prefer JSON for consistancy's sake), there's just no competing with their data.
-  * 
+  * [GoodReads](https://www.goodreads.com/api) - Goodreads is a book-centered social network, with a central focus on the collection and dispersal of user-generated book reviews. It's also a fairly large database of book information, with a fully featured API (although it too returns data in XML, grr), so it was a reasonable fit to complete the book portion of the project.

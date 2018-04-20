@@ -3,6 +3,7 @@ import requests
 import json
 import xml.etree.ElementTree as ET
 from secrets import secrets
+from tabulate import tabulate
 
 class Collection_Database():
     def __init__(self):
@@ -180,20 +181,26 @@ class Collection_Database():
     def view_video_games(self):
         self.cursor.execute("SELECT * FROM video_games ORDER BY name DESC;")
         results = self.cursor.fetchall()
+        results_as_lists = []
         for row in results:
-            print(row)
+            results_as_lists.append(list(row))
+        print(tabulate(results_as_lists, headers=['Name', 'Platform', 'In Collection?', 'Developer']))
 
     def view_tabletop_rpgs(self):
         self.cursor.execute("SELECT * FROM tabletop_rpgs ORDER BY name DESC;")
         results = self.cursor.fetchall()
+        results_as_lists = []
         for row in results:
-            print(row)
+            results_as_lists.append(list(row))
+        print(tabulate(results_as_lists, headers=['Name', 'Publisher', 'In Collection?']))
 
     def view_books(self):
         self.cursor.execute("SELECT * FROM books ORDER BY name DESC;")
         results = self.cursor.fetchall()
+        results_as_lists = []
         for row in results:
-            print(row)
+            results_as_lists.append(list(row))
+        print(tabulate(results_as_lists, headers=['Name', 'Author', 'In Collection?']))
 
     def wipe_database(self):
         self.cursor.execute("DROP TABLE video_games;")
