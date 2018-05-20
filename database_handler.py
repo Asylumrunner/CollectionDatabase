@@ -10,11 +10,11 @@ class Collection_Database():
         self.connection = sqlite3.connect("collection.db")
         self.cursor = self.connection.cursor()
 
-        self.cursor.execute("CREATE TABLE IF NOT EXISTS video_games (name text, platform text, in_collection boolean, developer text);")
+        self.cursor.execute("CREATE TABLE IF NOT EXISTS video_games (uid INTEGER PRIMARY KEY, name text, platform text, in_collection boolean, developer text);")
         self.connection.commit()
-        self.cursor.execute("CREATE TABLE IF NOT EXISTS books (name text, author text, in_collection boolean);")
+        self.cursor.execute("CREATE TABLE IF NOT EXISTS books (uid INTEGER PRIMARY KEY, name text, author text, in_collection boolean);")
         self.connection.commit()
-        self.cursor.execute("CREATE TABLE IF NOT EXISTS tabletop_rpgs (name text, publisher text, in_collection boolean);")
+        self.cursor.execute("CREATE TABLE IF NOT EXISTS tabletop_rpgs (uid INTEGER PRIMARY KEY, name text, publisher text, in_collection boolean);")
         self.connection.commit()
 
     def register_item(self, table_name, key):
@@ -27,6 +27,10 @@ class Collection_Database():
         else:
             print("Invalid table name provided. Cannot add to table")
             raise KeyError
+
+    def deregister_item(self, table_name, ids):
+        self.cursor.execute("DELETE FROM {} WHERE uid IN ({});".format(table_name, ids))
+        self.connection.commit()
 
     def register_book(self, title):
         GR_API_KEY = secrets['Goodreads_API_Key']
@@ -62,7 +66,7 @@ class Collection_Database():
 
         author = (data.find('./best_book/author/name')).text
 
-        self.cursor.execute("INSERT INTO books VALUES(?, ?, ?);", [book, author, True])
+        self.cursor.execute("INSERT INTO books (name, author, in_collection) VALUES(?, ?, ?);", [book, author, True])
         self.connection.commit()
         return True
 
@@ -121,7 +125,7 @@ class Collection_Database():
                     print("Invalid choice")
                     choice = input("Please indicate the number of the publisher to associate with this game, or QUIT")
 
-        self.cursor.execute("INSERT INTO tabletop_rpgs VALUES(?, ?, ?);", [game, publisher, True])
+        self.cursor.execute("INSERT INTO tabletop_rpgs (name, publisher, in_collection) VALUES(?, ?, ?);", [game, publisher, True])
         self.connection.commit()
         return True
 
@@ -132,9 +136,10 @@ class Collection_Database():
         data = req.json()
 
         games = [game['name'] for game in data['results']]
+        release_years = [game['original_release_date'][0:4] for game in data['results']]
         print("The following games were retrieved:")
         for x in range(len(games)):
-            print("{}. {}".format(x+1, games[x]))
+            print("{}. {} ({})".format(x+1, games[x], release_years[x]))
         print("Please indicate the number of the game to insert into the database, or QUIT")
         choice = input("Choice: ")
 
@@ -174,7 +179,7 @@ class Collection_Database():
 
         in_collection = True
 
-        self.cursor.execute("INSERT INTO video_games VALUES(?, ?, ?, ?);", [game, platform, True, dev_string])
+        self.cursor.execute("INSERT INTO video_games (name, platform, in_collection, developer) VALUES(?, ?, ?, ?);", [game, platform, True, dev_string])
         self.connection.commit()
         return True
 
@@ -184,7 +189,7 @@ class Collection_Database():
         results_as_lists = []
         for row in results:
             results_as_lists.append(list(row))
-        print(tabulate(results_as_lists, headers=['Name', 'Platform', 'In Collection?', 'Developer']))
+        print(tabulate(results_as_lists, headers=['ID', 'Name', 'Platform', 'In Collection?', 'Developer']))
 
     def view_tabletop_rpgs(self):
         self.cursor.execute("SELECT * FROM tabletop_rpgs ORDER BY name DESC;")
@@ -192,7 +197,7 @@ class Collection_Database():
         results_as_lists = []
         for row in results:
             results_as_lists.append(list(row))
-        print(tabulate(results_as_lists, headers=['Name', 'Publisher', 'In Collection?']))
+        print(tabulate(results_as_lists, headers=['ID', 'Name', 'Publisher', 'In Collection?']))
 
     def view_books(self):
         self.cursor.execute("SELECT * FROM books ORDER BY name DESC;")
@@ -200,7 +205,7 @@ class Collection_Database():
         results_as_lists = []
         for row in results:
             results_as_lists.append(list(row))
-        print(tabulate(results_as_lists, headers=['Name', 'Author', 'In Collection?']))
+        print(tabulate(results_as_lists, headers=['ID', 'Name', 'Author', 'In Collection?']))
 
     def wipe_database(self):
         self.cursor.execute("DROP TABLE video_games;")
