@@ -1,5 +1,5 @@
 # CollectionDatabase
-A database application for cataloging my collection of physical media, powered by Python, MySQL, and a collection of APIs
+A database application for cataloging my collection of physical media, powered by Python, SQLite3, and a collection of APIs
 
 ## Background
 Like a lot of people with nerdy sensibilities, I own a lot of physical media, from video games to movies to books to tabletop RPGs to board and card games. My apartment is positively stuffed with bookcases that are themselves stuffed with _stuff_. While this currently doesn't raise an issue, as I live in Texas where land is practically free, I would like to move into a more dense city such as Seattle, NYC, or Chicago. With that move would come a vast reduction of space, and as a necessary corollary, a vast reduction in the stuff I own.
