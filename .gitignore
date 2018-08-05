@@ -5,4 +5,4 @@ idea
 .idea/
 *.pyc
 _pycache_/
-.db
+*.db
