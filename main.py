@@ -7,10 +7,11 @@ choice = 0
 while choice != 5:
 
     print("1. Add item to database")
-    print("2. Wipe database")
-    print("3. View database")
-    print("4. Remove items from database")
-    print("5. Quit")
+    print("2. Bulk input via text file")
+    print("3. Wipe database")
+    print("4. View database")
+    print("5. Remove items from database")
+    print("6. Quit")
 
     choice = int(input("Select an option: "))
 
@@ -31,14 +32,21 @@ while choice != 5:
             title = input("What book?: ")
             db.register_item("books", title)
     elif choice == 2:
+        file_name = input("Provide the name of the text file, including extension: ")
+        with open(file_name, 'r') as in_file:
+            lines = in_file.readlines()
+        for line in lines:
+            split_line = line.trim().split("/")
+            db.register_item(split_line[1], split_line[0])
+    elif choice == 3:
         choice = input("Are you sure? y/n: ")
         if choice == 'y':
             db.wipe_database()
-    elif choice == 3:
+    elif choice == 4:
         db.view_video_games()
         db.view_tabletop_rpgs()
         db.view_books()
-    elif choice == 4:
+    elif choice == 5:
         print("Removing items from database")
         print("1. Video game")
         print("2. Tabletop RPG")
