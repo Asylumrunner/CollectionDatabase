@@ -4,7 +4,7 @@ db = database_handler.Collection_Database()
 
 choice = 0
 
-while choice != 5:
+while choice != 6:
 
     print("1. Add item to database")
     print("2. Bulk input via text file")
@@ -36,7 +36,7 @@ while choice != 5:
         with open(file_name, 'r') as in_file:
             lines = in_file.readlines()
         for line in lines:
-            split_line = line.trim().split("/")
+            split_line = line.strip().split("/")
             db.register_item(split_line[1], split_line[0])
     elif choice == 3:
         choice = input("Are you sure? y/n: ")

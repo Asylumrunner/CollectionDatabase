@@ -6,3 +6,6 @@ idea
 *.pyc
 _pycache_/
 *.db
+*.txt
+*.csv
+bootstrap-4.1.3-dist/

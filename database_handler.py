@@ -1,6 +1,8 @@
 import sqlite3
 import requests
 import json
+import csv
+import external_api_handler as apis
 import xml.etree.ElementTree as ET
 from secrets import secrets
 from tabulate import tabulate
@@ -12,7 +14,7 @@ class Collection_Database():
 
         self.cursor.execute("CREATE TABLE IF NOT EXISTS video_games (uid INTEGER PRIMARY KEY, name text, platform text, in_collection boolean, developer text);")
         self.connection.commit()
-        self.cursor.execute("CREATE TABLE IF NOT EXISTS books (uid INTEGER PRIMARY KEY, name text, author text, in_collection boolean);")
+        self.cursor.execute("CREATE TABLE IF NOT EXISTS books (uid INTEGER PRIMARY KEY, name text, author text, isbn text, in_collection boolean);")
         self.connection.commit()
         self.cursor.execute("CREATE TABLE IF NOT EXISTS tabletop_rpgs (uid INTEGER PRIMARY KEY, name text, publisher text, in_collection boolean);")
         self.connection.commit()
@@ -33,179 +35,80 @@ class Collection_Database():
         self.connection.commit()
 
     def register_book(self, title):
-        GR_API_KEY = secrets['Goodreads_API_Key']
-        req = requests.get("https://www.goodreads.com/search/index.xml?key={}&q={}".format(GR_API_KEY, title))
-        root = ET.fromstring(req.content)
-
-        responses_dict = {}
-        results = root.find('./search/results')
-        for title in results:
-            name = (title.find('./best_book/title')).text
-            responses_dict[name] = title
-        book_titles = list(responses_dict.keys())
-
-        print("The following books were retrieved:")
-        for x in range(len(book_titles)):
-            author = responses_dict[book_titles[x]].find('./best_book/author/name').text
-            print("{}. {} by {}".format(x+1, book_titles[x], author))
-        print("Please indicate the number of the book to insert into the database, or QUIT")
-        choice = input("Choice: ")
-
-        invalid_choice = True
-        while invalid_choice:
-            if choice == "QUIT":
-                return True
-            else:
-                try:
-                    book = book_titles[int(choice)-1]
-                    data = responses_dict[book]
-                    invalid_choice = False
-                except Exception:
-                    print("Invalid choice")
-                    choice = input("Please indicate the number of the book to insert into the database, or QUIT")
-
-        author = (data.find('./best_book/author/name')).text
-
-        self.cursor.execute("INSERT INTO books (name, author, in_collection) VALUES(?, ?, ?);", [book, author, True])
-        self.connection.commit()
+        data = apis.get_book(title)
+        if data:
+            book = (data.find('./best_book/title')).text
+            author = (data.find('./best_book/author/name')).text
+            self.cursor.execute("INSERT INTO books (name, author, in_collection) VALUES(?, ?, ?);", [book, author, True])
+            self.connection.commit()
         return True
 
     def register_tabletop_rpg(self, title):
-        req = requests.get("https://www.rpggeek.com/xmlapi2/search?query={}&type=rpgitem".format(title))
-        root = ET.fromstring(req.content)
-
-        responses_dict = {}
-        for child in root:
-            subelements = child.iterfind('name')
-            for element in subelements:
-                responses_dict[element.get('value', 'ERROR')] = child.get('id', '00000')
-        book_titles = list(responses_dict.keys())
-
-        print("The following RPG items were retrieved:")
-        for x in range(len(book_titles)):
-            print("{}. {}".format(x+1, book_titles[x]))
-        print("Please indicate the number of the game to insert into the database, or QUIT")
-        choice = input("Choice: ")
-
-        invalid_choice = True
-        while invalid_choice:
-            if choice == "QUIT":
-                return True
-            else:
-                try:
-                    game = book_titles[int(choice)-1]
-                    id = responses_dict[game]
-                    invalid_choice = False
-                except Exception:
-                    print("Invalid choice")
-                    choice = input("Please indicate the number of the game to insert into the database, or QUIT")
-
-        req = requests.get("https://www.rpggeek.com/xmlapi2/thing?id={}".format(id))
-        print("https://www.rpggeek.com/xmlapi2/thing?id={}".format(id))
-        root = ET.fromstring(req.content)
-        publishers = root.findall(".//*[@type='rpgpublisher']")
-        publisher_names = [elem.get('value') for elem in publishers]
-
-        print("This game is associated with the following publishers: ")
-        for x in range(len(publisher_names)):
-            print("{}. {}".format(x+1, publisher_names[x]))
-
-        print("Please indicate the number of the publisher to associate with this game, or QUIT")
-        choice = input("Choice: ")
-
-        invalid_choice = True
-        while invalid_choice:
-            if choice == "QUIT":
-                return True
-            else:
-                try:
-                    publisher = publisher_names[int(choice)-1]
-                    invalid_choice = False
-                except Exception:
-                    print("Invalid choice")
-                    choice = input("Please indicate the number of the publisher to associate with this game, or QUIT")
-
-        self.cursor.execute("INSERT INTO tabletop_rpgs (name, publisher, in_collection) VALUES(?, ?, ?);", [game, publisher, True])
-        self.connection.commit()
+        data = apis.get_tabletop_rpg(title)
+        if data:
+            self.cursor.execute("INSERT INTO tabletop_rpgs (name, publisher, in_collection) VALUES(?, ?, ?);", [data['game'], data['publisher'], True])
+            self.connection.commit()
         return True
 
     def register_video_game(self, title):
-        GB_API_KEY = secrets['Giant_Bomb_API_Key']
-        header = {'User-Agent': 'Asylumrunner_Database_Tool'}
-        req = requests.get("http://www.giantbomb.com/api/search/?api_key={}&format=json&query=%22{}%22&resources=game".format(GB_API_KEY, title), headers=header)
-        data = req.json()
-
-        games = [game['name'] for game in data['results']]
-        release_years = [game['original_release_date'][0:4] for game in data['results']]
-        print("The following games were retrieved:")
-        for x in range(len(games)):
-            print("{}. {} ({})".format(x+1, games[x], release_years[x]))
-        print("Please indicate the number of the game to insert into the database, or QUIT")
-        choice = input("Choice: ")
-
-        invalid_choice = True
-        while invalid_choice:
-            if choice == "QUIT":
-                return True
-            else:
-                try:
-                    game = games[int(choice)-1]
-                    guid = data['results'][int(choice)-1]['guid']
-                    invalid_choice = False
-                except Exception:
-                    print("Invalid choice")
-                    choice = input("Please indicate the number of the game to insert into the database, or QUIT")
-
-        req = requests.get("http://www.giantbomb.com/api/game/{}/?api_key={}&format=json".format(guid, GB_API_KEY), headers=header)
-        data = req.json()
-
-        developers = [dev['name'] for dev in data['results']['developers']]
-        dev_string = ", ".join(developers)
-
-        platforms = [platform['name'] for platform in data['results']['platforms']]
-        print("{} is available on the following platforms:".format(game))
-        for x in range(len(platforms)):
-            print("{}. {}".format(x+1, platforms[x]))
-        choice = input("What platform is your copy? :")
-
-        invalid_choice = True
-        while invalid_choice:
-            try:
-                platform = platforms[int(choice)-1]
-                invalid_choice = False
-            except Exception:
-                print("Invalid choice")
-                choice = input("What platform is your copy? :")
-
-        in_collection = True
-
-        self.cursor.execute("INSERT INTO video_games (name, platform, in_collection, developer) VALUES(?, ?, ?, ?);", [game, platform, True, dev_string])
-        self.connection.commit()
+        data = apis.get_video_game(title)
+        if data:
+            self.cursor.execute("INSERT INTO video_games (name, platform, in_collection, developer) VALUES(?, ?, ?, ?);", [data['name'], data['platform'], True, data['developer']])
+            self.connection.commit()
         return True
 
-    def view_video_games(self):
+    def get_book_table(self):
+        self.cursor.execute("SELECT * FROM books ORDER BY name DESC;")
+        results = self.cursor.fetchall()
+        return results
+
+    def get_rpg_table(self):
+        self.cursor.execute("SELECT * FROM tabletop_rpgs ORDER BY name DESC;")
+        results = self.cursor.fetchall()
+        return results
+
+    def get_video_game_table(self):
         self.cursor.execute("SELECT * FROM video_games ORDER BY name DESC;")
         results = self.cursor.fetchall()
+        return results
+
+    def view_video_games(self):
+        results = self.get_video_game_table()
         results_as_lists = []
         for row in results:
             results_as_lists.append(list(row))
         print(tabulate(results_as_lists, headers=['ID', 'Name', 'Platform', 'In Collection?', 'Developer']))
 
     def view_tabletop_rpgs(self):
-        self.cursor.execute("SELECT * FROM tabletop_rpgs ORDER BY name DESC;")
-        results = self.cursor.fetchall()
+        results = self.get_rpg_table()
         results_as_lists = []
         for row in results:
             results_as_lists.append(list(row))
         print(tabulate(results_as_lists, headers=['ID', 'Name', 'Publisher', 'In Collection?']))
 
     def view_books(self):
-        self.cursor.execute("SELECT * FROM books ORDER BY name DESC;")
-        results = self.cursor.fetchall()
+        results = self.get_book_table()
         results_as_lists = []
         for row in results:
             results_as_lists.append(list(row))
         print(tabulate(results_as_lists, headers=['ID', 'Name', 'Author', 'In Collection?']))
+
+    def export_db_to_csv(self):
+        with open('books.csv', 'w', newline='') as books_csv:
+            book_writer = csv.writer(books_csv, dialect='excel')
+            results = self.get_book_table()
+            for row in results:
+                book_writer.writerow(list(row))
+        with open('games.csv', 'w', newline='') as games_csv:
+            game_writer = csv.writer(games_csv, dialect='excel')
+            results = self.get_video_game_table()
+            for row in results:
+                game_writer.writerow(list(row))
+        with open('rpgs.csv', 'w', newline='') as rpgs_csv:
+            rpg_writer = csv.writer(rpgs_csv, dialect='excel')
+            results = self.get_rpgtable()
+            for row in results:
+                rpg_writer.writerow(list(row))
 
     def wipe_database(self):
         self.cursor.execute("DROP TABLE video_games;")
