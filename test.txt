@@ -1,7 +1,4 @@
-Anarchy Reigns/video_games
-Batman Arkham Asylum/video_games
-Prey/video_games
-Norwegian Wood/books
-flow/books
-Wild Talents/tabletop_rpgs
-Burning Wheel Gold/tabletop_rpgs
+Hunt Showdown/video_games
+Vermintide 2/video_games
+Apex Legends/video_games
+Battlefront 2/video_games
