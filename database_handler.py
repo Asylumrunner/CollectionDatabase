@@ -18,6 +18,8 @@ class Collection_Database():
         self.connection.commit()
         self.cursor.execute("CREATE TABLE IF NOT EXISTS tabletop_rpgs (uid INTEGER PRIMARY KEY, name text, publisher text, in_collection boolean);")
         self.connection.commit()
+        self.cursor.execute("CREATE TABLE IF NOT EXISTS movies (uid INTEGER PRIMARY KEY, name text, language text, in_collection boolean);")
+        self.connection.commit()
 
     def register_item(self, table_name, key):
         if table_name == "video_games":
@@ -26,6 +28,8 @@ class Collection_Database():
             self.register_book(key)
         elif table_name == 'tabletop_rpgs':
             self.register_tabletop_rpg(key)
+        elif table_name == 'movies':
+            self.register_movie(key)
         else:
             print("Invalid table name provided. Cannot add to table")
             raise KeyError
@@ -57,6 +61,13 @@ class Collection_Database():
             self.connection.commit()
         return True
 
+    def register_movie(self, title):
+        data = apis.get_movie(title)
+        if data:
+            self.cursor.execute("INSERT INTO movies (name, language, in_collection) VALUES(?, ?, ?);", [data['title'], data['language'], True])
+            self.connection.commit()
+        return True
+
     def get_book_table(self):
         self.cursor.execute("SELECT * FROM books ORDER BY name DESC;")
         results = self.cursor.fetchall()
@@ -69,6 +80,11 @@ class Collection_Database():
 
     def get_video_game_table(self):
         self.cursor.execute("SELECT * FROM video_games ORDER BY name DESC;")
+        results = self.cursor.fetchall()
+        return results
+    
+    def get_movie_table(self):
+        self.cursor.execute("SELECT * FROM movies ORDER BY name DESC;")
         results = self.cursor.fetchall()
         return results
 
@@ -93,6 +109,13 @@ class Collection_Database():
             results_as_lists.append(list(row))
         print(tabulate(results_as_lists, headers=['ID', 'Name', 'Author', 'In Collection?']))
 
+    def view_movies(self):
+        results = self.get_movie_table()
+        results_as_lists = []
+        for row in results:
+            results_as_lists.append(list(row))
+        print(tabulate(results_as_lists, headers=['ID', 'Name', 'Language', 'In Collection?']))
+
     def export_db_to_csv(self):
         with open('books.csv', 'w', newline='') as books_csv:
             book_writer = csv.writer(books_csv, dialect='excel')
@@ -109,6 +132,11 @@ class Collection_Database():
             results = self.get_rpg_table()
             for row in results:
                 rpg_writer.writerow(list(row))
+        with open('movies.csv', 'w', newline='') as movies_csv:
+            movie_writer = csv.writer(movies_csv, dialect='excel')
+            results = self.get_movie_table()
+            for row in results:
+                movie_writer.writerow(list(row))
 
     def import_csv_to_db(self, file_name, table_name):
         if table_name == "video_games":
@@ -141,4 +169,7 @@ class Collection_Database():
         self.connection.commit()
 
         self.cursor.execute("DROP TABLE books;")
+        self.connection.commit()
+
+        self.cursor.execute("DROP TABLE movies;")
         self.connection.commit()
