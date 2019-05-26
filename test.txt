@@ -1,7 +1,272 @@
-Anarchy Reigns/video_games
-Batman Arkham Asylum/video_games
-Prey/video_games
-Norwegian Wood/books
-flow/books
-Wild Talents/tabletop_rpgs
-Burning Wheel Gold/tabletop_rpgs
+Blood of Elves
+The Unreasoning Mask
+China Underground
+If Then
+The Master of Go
+Weapons of Math Destruction
+flow
+Master and Commander
+The Moon Is A Harsh Mistress
+The Shards of Heaven
+A Pattern Language
+Quicksilver
+Monster Hunter International
+Arrival
+Understanding China
+Jade City
+The Peripheral
+Too Like The Lightning
+Altered Carbon
+Leviathan Wakes
+Stranger In A Strange Land
+The Difference Engine
+Japanese Hiragana & Katakana For Beginners
+Essential Japanese Grammar
+Introduction to Algorithms
+Leviathan
+The Big Book of Barry Ween
+Borne
+The Foundation Trilogy
+World War Z
+The Odyssey
+The Hobbit
+Area X
+Bullfinch's Mythology
+The Arabian Nights
+Rosencrantz & Guildenstern Are Dead
+Children of Blood and Bone
+Spook Country
+Dirk Gently's Hollistic Detective Agency
+The Amulet of Samarkand
+Mona Lisa Overdrive
+The Tombs of Atuan
+Nausicaa and the Valley of the Wind I
+Nausicaa and the Valley of the Wind II
+The Encyclopedia of Demons and Demonology
+Business and Technical Communication
+Universal Principles of Design
+How The Internet Works
+How Networks Work
+How Software Works
+How Microprocessors Work
+The Art of Game Design
+David Perry on Game Design
+Playing At The World
+The Game Design Reader
+Chronicles of the Black Company
+The Divine Comedy
+Al Capone's Beer Wars
+Ravenor The Omnibus
+Eisenhorn
+The UX Book
+Operating Systems Internals and Design Principles
+Challenges For Game Designers
+Game Writing Narrative Skills For Video Games
+Game Design Workshop
+Kotlin Programming
+9 Algorithms That Changed The World
+Mathematics For 3D Game Programming & Computer Graphics
+Game Mechanics
+Game Programming Patterns
+Concepts of Programming Languages
+Characteristics of Games
+Level Up
+Speed Tribes
+Yakuza Japan's Criminal Underworld
+My Drunk Kitchen
+The Passage
+Jonathan Strange & Mr Norrell
+Exploding the Phone
+PoC || GTFO
+Game Feel
+GameTek
+Designing Games
+Indie Games From Dream To Delivery
+The Windup Girl
+Infinite Jest
+Godel Escher Bach
+King of Heists
+The Quantum Thief
+Black Leopard Red Wolf
+10 Billion Days and 100 Billion Nights
+The Luminaries
+The Savage Tales of Solomon Kane
+The Coming of Conan The Cimmerian
+Javascript & Jquery
+House of Leaves
+Essential Dr. Strange
+Cracking the Coding Interview
+Killing Commentadore
+Norwegian Wood
+The Wind-Up Bird Chronicles
+Kafka on the Shore
+Hard-Boiled Wonderland and the End of the World
+After the Quake
+Sputnik Sweetheart
+A Wild Sheep Chase
+Wind/Pinball
+Blind Willow, Sleeping Woman
+After Dark
+Dance Dance Dance
+1Q84
+Colorless Tsukuru Tazaki and His Years of Pilgrimmage
+The Elephant Vanishes
+The Box Man
+The Zombie Survival Guide
+How To Win Friends And Influence People
+The Design of Everyday Things
+Dragonlance Chronicles
+The Nibelungenlied
+On War
+The basque History of the World
+Lord of the Rings
+Secrets of the Samurai
+How Not To Be Wrong
+Dice Games Properly Explained
+The life-changing magic of tidying up
+Old Man's War
+Blindsight
+Last Call
+Streetfight
+Consider Phlebas
+Under the Black Flag
+Marching Powder
+The Punch Escrow
+Baptism of Fire
+The Time of Contempt
+Salt A World History
+The Color of Magic
+The Last Wish
+Flowers for Algernon
+Shogun
+Dune
+Neuromancer
+The Lies of Locke Lamora
+The Book of the New Sun 
+Mistborn
+Watership Down
+The Goblin Emperor
+The Six-Gun Tarot
+Term Limits
+Sundiver
+Guns, Germs, and Steel
+Architecture Through The Ages
+Data Structures For Game Programmers
+The Name of the Wind
+The Dictionary of Mythology
+The Book of Games
+H.P Lovecraft The Fiction
+The Greatest Adventures of Sherlock Holmes
+The Books of Earthsea
+The Vorrh
+Perdido Street Station
+Japanese Tales
+Who Fears Death
+Promise of Blood
+The Crimson Campaign
+Kill Six Billion Demons 1
+Kill Six Billion Demons 2
+Kill Six Billion Demons 3
+Legend of the Hero
+Crisis on Infinite Earths
+Batman: Year One
+The Kingdom
+Sex Criminals 1
+Sex Criminals 2
+Kingdom Come
+Batman: The Dark Knight Returns
+Superman: Red Son
+Transmetropolitan 1
+Batman The Killing Joke
+Batman The Dark Knight Strikes Again
+Tokyo Ghost
+Head Lopper
+Dark Nights: Metal
+Watchmen
+The Black Monday Murders
+The Art of Grasshopper Manufacture
+Pendragon The Soldiers of Halla
+Battle Royale
+The Paper Magician
+Dhalgren
+Fear and Loathing In Las Vegas
+Rendezvous with Rama
+Hard To Be A God
+A Cook's Tour
+Kitchen Confidential
+The Elric Saga Part I
+The Elric Saga Part II
+Disrupted
+The Dark Forest
+Jurassic Park
+Introduction to the Theory of Computation
+Game Design Secrets of the Sages
+The Metropolitan Museum of Art Guide
+American Gods
+Neverwhere
+Fahrenheit 451
+A Deepness In The Sky
+A Voyage To Arcturus
+Lord of Light
+Hyperion
+The Way of Kings
+The left Hand of Darkness
+Good Omens
+Obsidian and Blood
+The Nekropolis Archives
+The New Penguin History of the World
+The Art of Failure
+A Game of Thrones
+A Clash of Kings
+A Storm of Swords
+A Feast For Crows
+A Dance With Dragons
+The Outcast Hours
+Light
+An Excess Male
+The Disaster Artist
+How To Do Things With Video Games
+A Scanner Darkly
+The Man In The High Castle
+Metro 2033
+Raven Strategem
+Ninefox Gambit
+Count Zero
+Burning Chrome
+The Catcher In The Rye
+The Sorrow of War
+Coin Locker Babies
+Slaughterhouse 5
+The Mahabharata
+Africa A Biography of the Continent
+Masters of Doom
+A Canticle For Leibowitz
+The Yiddish Policeman's Union
+Medium Raw
+Please Kill Me
+The Paper Menagerie
+Starfish
+The Player of Games
+Persuasive Games
+Morpheus Road The Light
+Hellboy Seed of Destruction
+Saga 1
+East of West 1
+Low 1
+On Food and Cooking
+Ratio
+Portugal at Table
+Going Solo In The Kitchen
+Paul Prudhomme's Louisiana Kitchen
+The New Spanish Table
+I'm Just Here For The Food
+Slow Cooker One Pot & Casserole
+The Everything Medican Cookbook
+The Indian Cooking Course
+The Sushi Experience
+Good Eats The Early Years
+The Complete America's Test Kitchen Cookbook
+Tokyo Cult Recipes
+Chinatowns
+The Joy of Cooking
+Atlas Obscura
