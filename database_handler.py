@@ -106,9 +106,32 @@ class Collection_Database():
                 game_writer.writerow(list(row))
         with open('rpgs.csv', 'w', newline='') as rpgs_csv:
             rpg_writer = csv.writer(rpgs_csv, dialect='excel')
-            results = self.get_rpgtable()
+            results = self.get_rpg_table()
             for row in results:
                 rpg_writer.writerow(list(row))
+
+    def import_csv_to_db(self, file_name, table_name):
+        if table_name == "video_games":
+            existing_table = self.get_video_game_table()
+        elif table_name == "tabletop_rpgs":
+            existing_table = self.get_rpg_table()
+        elif table_name == "books":
+            existing_table = self.get_book_table()
+
+        dictionary_of_rows = {}
+        for row in existing_table:
+            row_as_list = list(row)
+            dictionary_of_rows[row_as_list[1]] = row_as_list
+
+        dictionary_of_rows_from_csv = grab_rows_from_csv(file_name)
+
+    def grab_rows_from_csv(self, csv_file_name):
+        dictionary_of_rows = {}
+        with open(file_name, 'r', newline='') as csv_file:
+            csv_reader = csv.DictReader(csv_file, dialect='excel')
+            for row in csv_reader:
+                dictionary_of_rows[row['Name']] = row
+        return dictionary_of_rows
 
     def wipe_database(self):
         self.cursor.execute("DROP TABLE video_games;")

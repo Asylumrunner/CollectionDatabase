@@ -11,7 +11,8 @@ while choice != 6:
     print("3. Wipe database")
     print("4. View database")
     print("5. Remove items from database")
-    print("6. Quit")
+    print("6. Create database from CSV")
+    print("7. Quit")
 
     choice = int(input("Select an option: "))
 
@@ -65,3 +66,17 @@ while choice != 6:
             db.view_books()
             ids = input("List books to remove by ID, separated by commas:")
             db.deregister_item("books", ids)
+    elif choice == 6:
+        file_name = input("Provide name of the text file of the CSV")
+        print("What kind of table is this?")
+        print("1. Video games")
+        print("2. Books")
+        print("3. Tabletop RPG")
+        sub_choice = int(input("Select an option: "))
+        if sub_choice == 1:
+            db.import_csv_to_db(file_name, "video_games")
+        elif sub_choice == 2:
+            db.import_csv_to_db(file_name, "books")
+        elif sub_choice == 3:
+            db.import_csv_to_db(file_name, "tabletop_rpgs")
+
