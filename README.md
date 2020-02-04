@@ -23,9 +23,11 @@ Why don't you just shut your mouth.
   * Support board game collection tracking via BoardGameGeek
   * Support physical movie tracking
   * Enable the updating of collection-tracking upstream to a personal collection site, hosted on AWS S3
+  * Actually, just host the whole thing on the cloud
   * Extreme stretch goal: compare the collection with the collection of my local library
   * More convenient mass editing
   * Enable movie tracking via ... some sort of API?
   * Allow for CSV <-> database version control, like some sort of "match database to CSV" and "match CSV to database" option
   * Handle weird unicode characters because game titles love to be special snowflakes
   * Add more "none of these are right" options in search results
+  * Host this entire thing somewhere reasonable instead of using a CLI interface for it like a psychopath
