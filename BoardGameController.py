@@ -18,6 +18,8 @@ class BoardGameController(GenreController):
         item_dict['minimum_players'] = search_root.find('./minplayers').get('value', "-1")
         item_dict['maximum_players'] = search_root.find('./maxplayers').get('value', "a billion")
         item_dict['year_published'] = search_root.find('./yearpublished').get('value', '0')
+        item_dict['description'] = search_root.find('./description').text
+        item_dict['playtime'] = search_root.find('./playingtime').get('value', 'eternity')
         return item_dict
     
     def lookup_entry(self, title, **kwargs):
@@ -32,6 +34,3 @@ class BoardGameController(GenreController):
             response.append(lookup)
         
         return response
-            
-        
-

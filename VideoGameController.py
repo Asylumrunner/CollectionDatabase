@@ -11,5 +11,5 @@ class VideoGameController(GenreController):
 
     def lookup_entry(self, title, **kwargs):
         req = requests.get(self.lookup_req_template.format(self.GB_API_KEY, title), headers=self.header)
-        response = [{'name': game['name'], 'summary': game['deck'], 'release_year': game['expected_release_year'], 'guid': game['guid']} for game in req.json()['results']]
+        response = [{'name': game['name'], 'summary': game['deck'], 'release_year': game['expected_release_year'], 'guid': game['guid'], 'platforms': [platform['name'] for platform in game['platforms']]} for game in req.json()['results']]
         return response
