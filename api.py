@@ -1,9 +1,9 @@
 import flask
 from VideoGameController import VideoGameController
-""" from BookController import BookController
+#from BookController import BookController
 from MovieController import MovieController
 from BoardGameController import BoardGameController
-from RPGController import RPGController """
+from RPGController import RPGController
 
 app = flask.Flask(__name__)
 app.config['DEBUG'] = True
@@ -11,10 +11,10 @@ app.config['DEBUG'] = True
 def init():
     controller_dict = {}
     #controller_dict['books'] = BookController()
-    #controller_dict['movies'] = MovieController()
+    controller_dict['movies'] = MovieController()
     controller_dict['video_game'] = VideoGameController()
-    #controller_dict['board_game'] = BoardGameController()
-    #controller_dict['rpg'] = RPGController()
+    controller_dict['board_game'] = BoardGameController()
+    controller_dict['rpg'] = RPGController()
     return controller_dict
 
 controllers = init()
