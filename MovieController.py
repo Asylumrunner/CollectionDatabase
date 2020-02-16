@@ -2,6 +2,7 @@ import requests
 import concurrent.futures
 from secrets import secrets
 from genre_controller import GenreController
+from boto3.dynamodb.conditions import Key
 
 class MovieController(GenreController):
     def __init__(self):
@@ -70,4 +71,21 @@ class MovieController(GenreController):
         if(db_response['Attributes']):
             response['item'] = db_response['Attributes']
             response['status'] = 'OK'
+        return response
+    
+    def get_table(self):
+        response = {}
+        db_response = {}
+        while not response or 'LastEvaluatedKey' in db_response:
+            if('LastEvaluatedKey' not in db_response): 
+                db_response = self.dynamodb.scan(
+                    FilterExpression=Key('guid').begins_with(self.guid_prefix)
+                )
+            else:
+                db_response = self.dynamodb.scan(
+                    FilterExpression=Key('guid').begins_with(self.guid_prefix),
+                    ExclusiveStartKey=db_response['LastEvaluatedKey']
+                )
+            if(db_response['Items']):
+                response['Items'] = db_response['Items']
         return response

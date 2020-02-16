@@ -1,6 +1,7 @@
 import requests
 from secrets import secrets
 from genre_controller import GenreController
+from boto3.dynamodb.conditions import Key
 
 class VideoGameController(GenreController):
     
@@ -60,5 +61,24 @@ class VideoGameController(GenreController):
             response['item'] = db_response['Attributes']
             response['item']['platform'] = list(response['item']['platform'])
             response['status'] = 'OK'
+        return response
+
+    def get_table(self):
+        response = {}
+        db_response = {}
+        while not response or 'LastEvaluatedKey' in db_response:
+            if('LastEvaluatedKey' not in db_response): 
+                db_response = self.dynamodb.scan(
+                    FilterExpression=Key('guid').begins_with(self.guid_prefix)
+                )
+            else:
+                db_response = self.dynamodb.scan(
+                    FilterExpression=Key('guid').begins_with(self.guid_prefix),
+                    ExclusiveStartKey=db_response['LastEvaluatedKey']
+                )
+            if(db_response['Items']):
+                response['Items'] = db_response['Items']
+        for item in response['Items']: 
+                item['platform'] = list(item['platform'])
         return response
 

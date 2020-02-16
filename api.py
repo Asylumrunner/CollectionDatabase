@@ -66,9 +66,15 @@ def delete_entry(media, key):
             response = flask.jsonify('Deletion failed')
             response.status_code = 400
     return response
-"""
-@app.route('/<media>')
-def get_table(media)
 
+@app.route('/<media>', methods=['GET'])
+def get_table(media):
+    if media not in controllers:
+        response = flask.jsonify('Invalid media type')
+        response.status_code = 400
+    else:
+        response = flask.jsonify(controllers[media].get_table())
+    return response
+"""
 @app.route('/<media>')
 def clear_table(media) """
