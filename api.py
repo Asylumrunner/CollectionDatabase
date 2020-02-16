@@ -39,7 +39,7 @@ def put_entry(media, key):
             response.status_code = 400
     return response
 
-@app.route('/<media>/<key>')
+@app.route('/<media>/<key>', methods=['GET'])
 def get_entry(media, key):
     if media not in controllers:
         response = flask.jsonify('Invalid media type')
@@ -49,13 +49,24 @@ def get_entry(media, key):
         if(lookup_result['status'] != 'FAIL'):
             response = flask.jsonify(lookup_result['item'])
         else:
-            response = flask.jsonify('Insert failed')
+            response = flask.jsonify('Retrieval failed')
+            response.status_code = 400
+    return response
+
+@app.route('/<media>/<key>', methods=['DELETE'])
+def delete_entry(media, key):
+    if media not in controllers:
+        response = flask.jsonify('Invalid media type')
+        response.status_code = 400
+    else:
+        lookup_result = controllers[media].delete_key(key)
+        if(lookup_result['status'] != 'FAIL'):
+            response = flask.jsonify(lookup_result['item'])
+        else:
+            response = flask.jsonify('Deletion failed')
             response.status_code = 400
     return response
 """
-@app.route('/<media>/<key>')
-def delete_entry(media, key)
-
 @app.route('/<media>')
 def get_table(media)
 

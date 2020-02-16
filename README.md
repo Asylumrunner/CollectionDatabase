@@ -20,8 +20,6 @@ Why don't you just shut your mouth.
   * [The Movie Database](https://developers.themoviedb.org/3/getting-started/introduction) - The Movie Database, as its pleasantly on-the-nose name suggests, is a massive repository of data about movies, which I'm using to store my collection of physical movies. It also returns JSON, which is delightful.
 
 ## To-Dos/Feature Want List
-  * Support board game collection tracking via BoardGameGeek
-  * Support physical movie tracking
   * Enable the updating of collection-tracking upstream to a personal collection site, hosted on AWS S3
   * Actually, just host the whole thing on the cloud
   * Extreme stretch goal: compare the collection with the collection of my local library

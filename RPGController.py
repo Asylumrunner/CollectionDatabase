@@ -60,7 +60,6 @@ class RPGController(GenreController):
     def get_key(self, key):
         response = {'status': 'FAIL'}
         db_response = self.dynamodb.get_item(
-            TableName='CollectionTable',
             Key={
                 'guid': self.guid_prefix + key
             }
@@ -70,3 +69,15 @@ class RPGController(GenreController):
             response['status'] = 'OK'
         return response
         
+    def delete_key(self, key):
+        response = {'status': 'FAIL'}
+        db_response = self.dynamodb.delete_item(
+            Key={
+                'guid': self.guid_prefix + key
+            },
+            ReturnValues='ALL_OLD'
+        )
+        if(db_response['Attributes']):
+            response['item'] = db_response['Attributes']
+            response['status'] = 'OK'
+        return response

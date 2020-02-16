@@ -18,11 +18,11 @@ class GenreController(ABC):
     @abstractmethod
     def get_key(self, key):
         pass
-"""
+
     @abstractmethod
     def delete_key(self, key):
         pass
-
+"""
     @abstractmethod
     def get_table(self):
         pass

@@ -38,7 +38,6 @@ class VideoGameController(GenreController):
     def get_key(self, key):
         response = {'status': 'FAIL'}
         db_response = self.dynamodb.get_item(
-            TableName='CollectionTable',
             Key={
                 'guid': self.guid_prefix + key
             }
@@ -48,3 +47,18 @@ class VideoGameController(GenreController):
             response['item']['platform'] = list(response['item']['platform'])
             response['status'] = 'OK'
         return response
+    
+    def delete_key(self, key):
+        response = {'status': 'FAIL'}
+        db_response = self.dynamodb.delete_item(
+            Key={
+                'guid': self.guid_prefix + key
+            },
+            ReturnValues='ALL_OLD'
+        )
+        if(db_response['Attributes']):
+            response['item'] = db_response['Attributes']
+            response['item']['platform'] = list(response['item']['platform'])
+            response['status'] = 'OK'
+        return response
+
