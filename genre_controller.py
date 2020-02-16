@@ -5,7 +5,7 @@ from secrets import secrets
 class GenreController(ABC):
 
     def __init__(self):
-        self.dynamodb = boto3.client('dynamodb', region_name='us-east-1', aws_access_key_id=secrets['ACCESS_KEY'], aws_secret_access_key=secrets['SECRET_KEY'],)
+        self.dynamodb = boto3.resource('dynamodb', region_name='us-east-1', aws_access_key_id=secrets['ACCESS_KEY'], aws_secret_access_key=secrets['SECRET_KEY']).Table('CollectionTable')
 
     @abstractmethod
     def lookup_entry(self, title, **kwargs):
@@ -14,11 +14,11 @@ class GenreController(ABC):
     @abstractmethod
     def put_key(self, key):
         pass
-"""
+
     @abstractmethod
     def get_key(self, key):
         pass
-
+"""
     @abstractmethod
     def delete_key(self, key):
         pass

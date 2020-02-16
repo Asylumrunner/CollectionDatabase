@@ -22,17 +22,29 @@ class VideoGameController(GenreController):
         if(req.status_code == 200 and req.json()['error'] == 'OK'):
             game = req.json()['results']
             response = self.dynamodb.put_item(
-                TableName='CollectionTable',
                 Item={
-                    'guid': {'S': self.guid_prefix + game['guid']},
-                    'original_guid': {'S': game['guid']},
-                    'name': {'S': game['name']},
-                    'release_year': {'S': str(game['expected_release_year'])},
-                    'platform': {'SS': [platform['name'] for platform in game['platforms']]},
-                    'summary': {'S': game['deck']}
+                    'guid': self.guid_prefix + game['guid'],
+                    'original_guid': game['guid'],
+                    'name': game['name'],
+                    'release_year': str(game['expected_release_year']),
+                    'platform': [platform['name'] for platform in game['platforms']],
+                    'summary': game['deck']
                 }
             )
             print(response)
             return True
         return False
-        
+    
+    def get_key(self, key):
+        response = {'status': 'FAIL'}
+        db_response = self.dynamodb.get_item(
+            TableName='CollectionTable',
+            Key={
+                'guid': self.guid_prefix + key
+            }
+        )
+        if(db_response['Item']):
+            response['item'] = db_response['Item']
+            response['item']['platform'] = list(response['item']['platform'])
+            response['status'] = 'OK'
+        return response

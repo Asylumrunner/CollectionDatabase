@@ -1,6 +1,6 @@
 import flask
 from VideoGameController import VideoGameController
-#from BookController import BookController
+from BookController import BookController
 from MovieController import MovieController
 from BoardGameController import BoardGameController
 from RPGController import RPGController
@@ -10,7 +10,7 @@ app.config['DEBUG'] = True
 
 def init():
     controller_dict = {}
-    #controller_dict['books'] = BookController()
+    controller_dict['books'] = BookController()
     controller_dict['movies'] = MovieController()
     controller_dict['video_game'] = VideoGameController()
     controller_dict['board_game'] = BoardGameController()
@@ -38,11 +38,21 @@ def put_entry(media, key):
             response = flask.jsonify('Insert failed')
             response.status_code = 400
     return response
-"""
+
 @app.route('/<media>/<key>')
 def get_entry(media, key):
-    return 200
-
+    if media not in controllers:
+        response = flask.jsonify('Invalid media type')
+        response.status_code = 400
+    else:
+        lookup_result = controllers[media].get_key(key)
+        if(lookup_result['status'] != 'FAIL'):
+            response = flask.jsonify(lookup_result['item'])
+        else:
+            response = flask.jsonify('Insert failed')
+            response.status_code = 400
+    return response
+"""
 @app.route('/<media>/<key>')
 def delete_entry(media, key)
 

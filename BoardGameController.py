@@ -49,16 +49,15 @@ class BoardGameController(GenreController):
             duration = search_root.find('./playingtime').get('value', 'eternity')
             if(name != 'ERROR' and year_published != 0 and summary and minimum_players != "-1" and maximum_players != "a billion" and duration != "eternity"):
                 response = self.dynamodb.put_item(
-                    TableName='CollectionTable',
                     Item={
-                        'guid': {'S': self.guid_prefix + key},
-                        'original_guid': {'S': key},
-                        'name': {'S': name},
-                        'release_year': {'S': year_published},
-                        'summary': {'S': summary},
-                        'minimum_players': {'S': minimum_players},
-                        'maximum_players': {'S':maximum_players},
-                        'duration': {'S': duration}
+                        'guid': self.guid_prefix + key,
+                        'original_guid': key,
+                        'name': name,
+                        'release_year': year_published,
+                        'summary': summary,
+                        'minimum_players': minimum_players,
+                        'maximum_players': maximum_players,
+                        'duration': duration
                     }
                 )
                 print(response)
@@ -66,3 +65,16 @@ class BoardGameController(GenreController):
             else:
                 return False
         return False
+
+    def get_key(self, key):
+        response = {'status': 'FAIL'}
+        db_response = self.dynamodb.get_item(
+            TableName='CollectionTable',
+            Key={
+                'guid': self.guid_prefix + key
+            }
+        )
+        if(db_response['Item']):
+            response['item'] = db_response['Item']
+            response['status'] = 'OK'
+        return response

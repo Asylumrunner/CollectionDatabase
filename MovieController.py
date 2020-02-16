@@ -33,18 +33,29 @@ class MovieController(GenreController):
         if(req.status_code == 200):
             movie = req.json()
             response = self.dynamodb.put_item(
-                TableName='CollectionTable',
                 Item={
-                    'guid': {'S': self.guid_prefix + str(movie['id'])},
-                    'original_guid': {'S': str(movie['id'])},
-                    'name': {'S': movie['title']},
-                    'release_year': {'S': movie['release_date'][:4]},
-                    'language': {'S': movie['original_language']},
-                    'summary': {'S': movie['overview']},
-                    'duration': {'S': str(movie['runtime'])}
+                    'guid': self.guid_prefix + str(movie['id']),
+                    'original_guid': str(movie['id']),
+                    'name': movie['title'],
+                    'release_year': movie['release_date'][:4],
+                    'language': movie['original_language'],
+                    'summary': movie['overview'],
+                    'duration': str(movie['runtime'])
                 }
             )
             print(response)
             return True
         return False
 
+    def get_key(self, key):
+        response = {'status': 'FAIL'}
+        db_response = self.dynamodb.get_item(
+            TableName='CollectionTable',
+            Key={
+                'guid': self.guid_prefix + key
+            }
+        )
+        if(db_response['Item']):
+            response['item'] = db_response['Item']
+            response['status'] = 'OK'
+        return response
