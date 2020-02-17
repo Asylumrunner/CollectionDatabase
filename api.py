@@ -4,6 +4,7 @@ from Controllers.BookController import BookController
 from Controllers.MovieController import MovieController
 from Controllers.BoardGameController import BoardGameController
 from Controllers.RPGController import RPGController
+import concurrent.futures
 
 app = flask.Flask(__name__)
 app.config['DEBUG'] = True
@@ -87,6 +88,30 @@ def get_table(media):
             response = flask.jsonify(lookup_result['error_message'] if 'error_message' in lookup_result else "Lookup failed")
             response.status_code = 500
     return response
+
+def call_backup(controller):
+    return controllers[controller].back_up_table()
+
+@app.route('/backup', methods=['PUT'])
+def backup_tables():
+    response = {'failed_backups': 0, 'objects': [], 'error_messages': []}
+    try:
+        with concurrent.futures.ThreadPoolExecutor() as executor:
+            backup_results = [executor.submit(call_backup, controller) for controller in controllers]
+        for controller_response in concurrent.futures.as_completed(backup_results):
+            print("Received response for controller {}".format(controller_response['controller']))
+            if(controller_response['status'] == 'FAIL'):
+                response['failed_backups'] += 1
+                response['error_messages'].append({'Controller': controller_response['controller'], 'error_message': controller_response['error_message']})
+            else:
+                response['objects'].append({'Controller': controller_response['controller'], 'error_message': controller_response['object']})
+        json_response = flask.jsonify(response)
+    except Exception as e:
+        print("Exception while backing up tables: {}".format(e))
+        response['error_message'] = str(e)
+        json_response = flask.jsonify(response)
+        json_response.status_code = 500
+    return json_response
 """
 @app.route('/<media>')
 def clear_table(media) """

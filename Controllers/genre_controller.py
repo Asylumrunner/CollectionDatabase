@@ -6,6 +6,7 @@ class GenreController(ABC):
 
     def __init__(self):
         self.dynamodb = boto3.resource('dynamodb', region_name='us-east-1', aws_access_key_id=secrets['ACCESS_KEY'], aws_secret_access_key=secrets['SECRET_KEY']).Table('CollectionTable')
+        self.s3 = boto3.resource('s3', region_name='us-east-1', aws_access_key_id=secrets['ACCESS_KEY'], aws_secret_access_key=secrets['SECRET_KEY']).Bucket('collectiontablebackup')
 
     @abstractmethod
     def lookup_entry(self, title, **kwargs):
@@ -25,6 +26,10 @@ class GenreController(ABC):
 
     @abstractmethod
     def get_table(self):
+        pass
+
+    @abstractmethod
+    def back_up_table(self):
         pass
 """
     @abstractmethod

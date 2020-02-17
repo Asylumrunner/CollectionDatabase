@@ -2,6 +2,7 @@ import requests
 from Controllers.secrets import secrets
 from Controllers.genre_controller import GenreController
 from boto3.dynamodb.conditions import Key
+import json
 
 class VideoGameController(GenreController):
     
@@ -102,6 +103,27 @@ class VideoGameController(GenreController):
                     item['platform'] = list(item['platform'])
         except Exception as e:
             print("Exception while getting video game table from database: {}".format(e))
+            response['error_message'] = str(e)
+        return response
+    
+    def back_up_table(self):
+        response = {'status': 'FAIL', 'controller': 'VideoGame'}
+        try:
+            table_contents = self.get_table()
+            print(table_contents)
+            if('error_message' not in table_contents and 'Items' in table_contents):
+                guids = {'guids': [item['guid'] for item in table_contents['Items']]}
+                print(guids)
+                s3_response = self.s3.put_object(Key=self.guid_prefix + "Backup", Body=bytes(json.dumps(guids).encode('UTF-8')))
+                print(s3_response)
+                response['object'] = s3_response
+                response['status'] = 'OK'
+            elif('error_message' in table_contents):
+                response['error_message'] = table_contents['error_message']
+            else:
+                response['error_message'] = "No table items to back up"
+        except Exception as e:
+            print("Exception while backing up video game table from database: {}".format(e))
             response['error_message'] = str(e)
         return response
 
