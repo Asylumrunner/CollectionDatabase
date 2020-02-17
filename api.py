@@ -22,9 +22,16 @@ controllers = init()
 @app.route('/lookup/<media>/<title>', methods=['GET'])
 def lookup_data(media, title):
     if media not in controllers:
-        return flask.jsonify('Invalid media type')
+        response = flask.jsonify('Invalid media type')
+        response.status_code = 400
     else:
-        return flask.jsonify(controllers[media].lookup_entry(title))
+        lookup_response = controllers[media].lookup_entry(title)
+        if('Exception' in lookup_response[0]):
+            response = flask.jsonify(lookup_response[0]['Exception'])
+            response.status_code = 500
+        else:
+            response = flask.jsonify(lookup_response)
+    return response
 
 @app.route('/<media>/<key>', methods=['PUT'])
 def put_entry(media, key):
@@ -36,7 +43,7 @@ def put_entry(media, key):
             response = flask.jsonify('Key {} successfully inserted'.format(key))
         else:
             response = flask.jsonify('Insert failed')
-            response.status_code = 400
+            response.status_code = 500
     return response
 
 @app.route('/<media>/<key>', methods=['GET'])
@@ -49,8 +56,8 @@ def get_entry(media, key):
         if(lookup_result['status'] != 'FAIL'):
             response = flask.jsonify(lookup_result['item'])
         else:
-            response = flask.jsonify('Retrieval failed')
-            response.status_code = 400
+            response = flask.jsonify(lookup_result['error_message'] if 'error_message' in lookup_result else "Lookup failed")
+            response.status_code = 500
     return response
 
 @app.route('/<media>/<key>', methods=['DELETE'])
@@ -63,8 +70,8 @@ def delete_entry(media, key):
         if(lookup_result['status'] != 'FAIL'):
             response = flask.jsonify(lookup_result['item'])
         else:
-            response = flask.jsonify('Deletion failed')
-            response.status_code = 400
+            response = flask.jsonify(lookup_result['error_message'] if 'error_message' in lookup_result else "Lookup failed")
+            response.status_code = 500
     return response
 
 @app.route('/<media>', methods=['GET'])
@@ -73,7 +80,12 @@ def get_table(media):
         response = flask.jsonify('Invalid media type')
         response.status_code = 400
     else:
-        response = flask.jsonify(controllers[media].get_table())
+        lookup_result = controllers[media].get_table()
+        if('Items' in lookup_result and 'error_message' not in lookup_result):
+            response = flask.jsonify(lookup_result['Items'])
+        else:
+            response = flask.jsonify(lookup_result['error_message'] if 'error_message' in lookup_result else "Lookup failed")
+            response.status_code = 500
     return response
 """
 @app.route('/<media>')

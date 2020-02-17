@@ -18,74 +18,95 @@ class MovieController(GenreController):
         return response
 
     def lookup_entry(self, title, **kwargs):
-        req = requests.get(self.lookup_req_template.format(self.MDB_API_KEY, title))
         response = []
+        try:
+            req = requests.get(self.lookup_req_template.format(self.MDB_API_KEY, title))
 
-        with concurrent.futures.ThreadPoolExecutor() as executor:
-            lookups = executor.map(self.movie_lookup, [result['id'] for result in req.json()['results']])
-        
-        for lookup in lookups:
-            response.append(lookup)
-        
+            with concurrent.futures.ThreadPoolExecutor() as executor:
+                lookups = executor.map(self.movie_lookup, [result['id'] for result in req.json()['results']])
+            
+            for lookup in lookups:
+                response.append(lookup)
+        except Exception as e:
+            print("Exception in lookup for title {} in MovieController: {}".format(title, e))
+            response = [{
+                "Exception": str(e)
+            }]
         return response
     
     def put_key(self, key):
-        req = requests.get(self.movie_lookup_template.format(key, self.MDB_API_KEY))
-        if(req.status_code == 200):
-            movie = req.json()
-            response = self.dynamodb.put_item(
-                Item={
-                    'guid': self.guid_prefix + str(movie['id']),
-                    'original_guid': str(movie['id']),
-                    'name': movie['title'],
-                    'release_year': movie['release_date'][:4],
-                    'language': movie['original_language'],
-                    'summary': movie['overview'],
-                    'duration': str(movie['runtime'])
-                }
-            )
-            print(response)
-            return True
-        return False
+        try:
+            req = requests.get(self.movie_lookup_template.format(key, self.MDB_API_KEY))
+            if(req.status_code == 200):
+                movie = req.json()
+                response = self.dynamodb.put_item(
+                    Item={
+                        'guid': self.guid_prefix + str(movie['id']),
+                        'original_guid': str(movie['id']),
+                        'name': movie['title'],
+                        'release_year': movie['release_date'][:4],
+                        'language': movie['original_language'],
+                        'summary': movie['overview'],
+                        'duration': str(movie['runtime'])
+                    }
+                )
+                print(response)
+                return True
+            return False
+        except Exception as e:
+            print("Exception while putting key {} in database via MovieController: {}".format(key, e))
+            return False
 
     def get_key(self, key):
         response = {'status': 'FAIL'}
-        db_response = self.dynamodb.get_item(
-            Key={
-                'guid': self.guid_prefix + key
-            }
-        )
-        if(db_response['Item']):
-            response['item'] = db_response['Item']
-            response['status'] = 'OK'
+        try:
+            db_response = self.dynamodb.get_item(
+                Key={
+                    'guid': self.guid_prefix + key
+                }
+            )
+            if(db_response['Item']):
+                response['item'] = db_response['Item']
+                response['status'] = 'OK'
+        except Exception as e:
+            print("Exception while retrieving key {} from database via MovieController: {}".format(key, e))
+            response['error_message'] = str(e)
         return response
 
     def delete_key(self, key):
         response = {'status': 'FAIL'}
-        db_response = self.dynamodb.delete_item(
-            Key={
-                'guid': self.guid_prefix + key
-            },
-            ReturnValues='ALL_OLD'
-        )
-        if(db_response['Attributes']):
-            response['item'] = db_response['Attributes']
-            response['status'] = 'OK'
+        try:
+            db_response = self.dynamodb.delete_item(
+                Key={
+                    'guid': self.guid_prefix + key
+                },
+                ReturnValues='ALL_OLD'
+            )
+            if(db_response['Attributes']):
+                response['item'] = db_response['Attributes']
+                response['status'] = 'OK'
+        except Exception as e:
+            print("Exception while deleting key {} from database via MovieController: {}".format(key, e))
+            response['error_message'] = str(e)
         return response
     
     def get_table(self):
         response = {}
         db_response = {}
-        while not response or 'LastEvaluatedKey' in db_response:
-            if('LastEvaluatedKey' not in db_response): 
-                db_response = self.dynamodb.scan(
-                    FilterExpression=Key('guid').begins_with(self.guid_prefix)
-                )
-            else:
-                db_response = self.dynamodb.scan(
-                    FilterExpression=Key('guid').begins_with(self.guid_prefix),
-                    ExclusiveStartKey=db_response['LastEvaluatedKey']
-                )
-            if(db_response['Items']):
-                response['Items'] = db_response['Items']
+        try:
+            while not response or 'LastEvaluatedKey' in db_response:
+                if('LastEvaluatedKey' not in db_response): 
+                    db_response = self.dynamodb.scan(
+                        FilterExpression=Key('guid').begins_with(self.guid_prefix)
+                    )
+                else:
+                    db_response = self.dynamodb.scan(
+                        FilterExpression=Key('guid').begins_with(self.guid_prefix),
+                        ExclusiveStartKey=db_response['LastEvaluatedKey']
+                    )
+                if(db_response['Items']):
+                    response['Items'] = db_response['Items']
+        except Exception as e:
+            print("Exception while getting movie table from database: {}".format(e))
+            response['error_message'] = str(e)
         return response

@@ -14,71 +14,94 @@ class VideoGameController(GenreController):
         super().__init__()
 
     def lookup_entry(self, title, **kwargs):
-        req = requests.get(self.lookup_req_template.format(self.GB_API_KEY, title), headers=self.header)
-        response = [{'name': game['name'], 'summary': game['deck'], 'release_year': game['expected_release_year'], 'guid': game['guid'], 'platforms': [platform['name'] for platform in game['platforms']]} for game in req.json()['results']]
+        try:
+            req = requests.get(self.lookup_req_template.format(self.GB_API_KEY, title), headers=self.header)
+            response = [{'name': game['name'], 'summary': game['deck'], 'release_year': game['expected_release_year'], 'guid': game['guid'], 'platforms': [platform['name'] for platform in game['platforms']]} for game in req.json()['results']]
+        except Exception as e:
+            print("Exception in lookup for title {} in VideoGameController: {}".format(title, e))
+            response = [{
+                "Exception": str(e)
+            }]
         return response
     
     def put_key(self, key):
-        req = requests.get(self.game_key_req_template.format(key, self.GB_API_KEY), headers=self.header)
-        if(req.status_code == 200 and req.json()['error'] == 'OK'):
-            game = req.json()['results']
-            response = self.dynamodb.put_item(
-                Item={
-                    'guid': self.guid_prefix + game['guid'],
-                    'original_guid': game['guid'],
-                    'name': game['name'],
-                    'release_year': str(game['expected_release_year']),
-                    'platform': [platform['name'] for platform in game['platforms']],
-                    'summary': game['deck']
-                }
-            )
-            print(response)
-            return True
-        return False
+        try:
+            req = requests.get(self.game_key_req_template.format(key, self.GB_API_KEY), headers=self.header)
+            if(req.status_code == 200 and req.json()['error'] == 'OK'):
+                game = req.json()['results']
+                response = self.dynamodb.put_item(
+                    Item={
+                        'guid': self.guid_prefix + game['guid'],
+                        'original_guid': game['guid'],
+                        'name': game['name'],
+                        'release_year': str(game['expected_release_year']),
+                        'platform': [platform['name'] for platform in game['platforms']],
+                        'summary': game['deck']
+                    }
+                )
+                print(response)
+                return True
+            else:
+                return False
+        except Exception as e:
+            print("Exception while putting key {} in database via VideoGameController: {}".format(key, e))
+            return False
     
     def get_key(self, key):
         response = {'status': 'FAIL'}
-        db_response = self.dynamodb.get_item(
-            Key={
-                'guid': self.guid_prefix + key
-            }
-        )
-        if(db_response['Item']):
-            response['item'] = db_response['Item']
-            response['item']['platform'] = list(response['item']['platform'])
-            response['status'] = 'OK'
+        try:
+            db_response = self.dynamodb.get_item(
+                Key={
+                    'guid': self.guid_prefix + key
+                }
+            )
+            if(db_response['Item']):
+                response['item'] = db_response['Item']
+                response['item']['platform'] = list(response['item']['platform'])
+                response['status'] = 'OK'
+        except Exception as e:
+            print("Exception while retrieving key {} from database via VideoGameController: {}".format(key, e))
+            response['error_message'] = str(e)
         return response
     
     def delete_key(self, key):
         response = {'status': 'FAIL'}
-        db_response = self.dynamodb.delete_item(
-            Key={
-                'guid': self.guid_prefix + key
-            },
-            ReturnValues='ALL_OLD'
-        )
-        if(db_response['Attributes']):
-            response['item'] = db_response['Attributes']
-            response['item']['platform'] = list(response['item']['platform'])
-            response['status'] = 'OK'
+        try:
+            db_response = self.dynamodb.delete_item(
+                Key={
+                    'guid': self.guid_prefix + key
+                },
+                ReturnValues='ALL_OLD'
+            )
+            if(db_response['Attributes']):
+                response['item'] = db_response['Attributes']
+                response['item']['platform'] = list(response['item']['platform'])
+                response['status'] = 'OK'
+        except Exception as e:
+            print("Exception while deleting key {} from database via VideoGameController: {}".format(key, e))
+            response['error_message'] = str(e)
         return response
 
     def get_table(self):
         response = {}
         db_response = {}
-        while not response or 'LastEvaluatedKey' in db_response:
-            if('LastEvaluatedKey' not in db_response): 
-                db_response = self.dynamodb.scan(
-                    FilterExpression=Key('guid').begins_with(self.guid_prefix)
-                )
-            else:
-                db_response = self.dynamodb.scan(
-                    FilterExpression=Key('guid').begins_with(self.guid_prefix),
-                    ExclusiveStartKey=db_response['LastEvaluatedKey']
-                )
-            if(db_response['Items']):
-                response['Items'] = db_response['Items']
-        for item in response['Items']: 
-                item['platform'] = list(item['platform'])
+        try:
+            while not response or 'LastEvaluatedKey' in db_response:
+                if('LastEvaluatedKey' not in db_response): 
+                    db_response = self.dynamodb.scan(
+                        FilterExpression=Key('guid').begins_with(self.guid_prefix)
+                    )
+                else:
+                    db_response = self.dynamodb.scan(
+                        FilterExpression=Key('guid').begins_with(self.guid_prefix),
+                        ExclusiveStartKey=db_response['LastEvaluatedKey']
+                    )
+                if(db_response['Items']):
+                    response['Items'] = db_response['Items']
+            for item in response['Items']: 
+                    item['platform'] = list(item['platform'])
+        except Exception as e:
+            print("Exception while getting video game table from database: {}".format(e))
+            response['error_message'] = str(e)
         return response
 
