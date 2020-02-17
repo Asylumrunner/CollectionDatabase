@@ -1,272 +1,273 @@
-Blood of Elves
-The Unreasoning Mask
-China Underground
-If Then
-The Master of Go
-Weapons of Math Destruction
-flow
-Master and Commander
-The Moon Is A Harsh Mistress
-The Shards of Heaven
-A Pattern Language
-Quicksilver
-Monster Hunter International
-Arrival
-Understanding China
-Jade City
-The Peripheral
-Too Like The Lightning
-Altered Carbon
-Leviathan Wakes
-Stranger In A Strange Land
-The Difference Engine
-Japanese Hiragana & Katakana For Beginners
-Essential Japanese Grammar
-Introduction to Algorithms
-Leviathan
-The Big Book of Barry Ween
-Borne
-The Foundation Trilogy
-World War Z
-The Odyssey
-The Hobbit
-Area X
-Bullfinch's Mythology
-The Arabian Nights
-Rosencrantz & Guildenstern Are Dead
-Children of Blood and Bone
-Spook Country
-Dirk Gently's Hollistic Detective Agency
-The Amulet of Samarkand
-Mona Lisa Overdrive
-The Tombs of Atuan
-Nausicaa and the Valley of the Wind I
-Nausicaa and the Valley of the Wind II
-The Encyclopedia of Demons and Demonology
-Business and Technical Communication
-Universal Principles of Design
-How The Internet Works
-How Networks Work
-How Software Works
-How Microprocessors Work
-The Art of Game Design
-David Perry on Game Design
-Playing At The World
-The Game Design Reader
-Chronicles of the Black Company
-The Divine Comedy
-Al Capone's Beer Wars
-Ravenor The Omnibus
-Eisenhorn
-The UX Book
-Operating Systems Internals and Design Principles
-Challenges For Game Designers
-Game Writing Narrative Skills For Video Games
-Game Design Workshop
-Kotlin Programming
-9 Algorithms That Changed The World
-Mathematics For 3D Game Programming & Computer Graphics
-Game Mechanics
-Game Programming Patterns
-Concepts of Programming Languages
-Characteristics of Games
-Level Up
-Speed Tribes
-Yakuza Japan's Criminal Underworld
-My Drunk Kitchen
-The Passage
-Jonathan Strange & Mr Norrell
-Exploding the Phone
-PoC || GTFO
-Game Feel
-GameTek
-Designing Games
-Indie Games From Dream To Delivery
-The Windup Girl
-Infinite Jest
-Godel Escher Bach
-King of Heists
-The Quantum Thief
-Black Leopard Red Wolf
-10 Billion Days and 100 Billion Nights
-The Luminaries
-The Savage Tales of Solomon Kane
-The Coming of Conan The Cimmerian
-Javascript & Jquery
-House of Leaves
-Essential Dr. Strange
-Cracking the Coding Interview
-Killing Commentadore
-Norwegian Wood
-The Wind-Up Bird Chronicles
-Kafka on the Shore
-Hard-Boiled Wonderland and the End of the World
-After the Quake
-Sputnik Sweetheart
-A Wild Sheep Chase
-Wind/Pinball
-Blind Willow, Sleeping Woman
-After Dark
-Dance Dance Dance
-1Q84
-Colorless Tsukuru Tazaki and His Years of Pilgrimmage
-The Elephant Vanishes
-The Box Man
-The Zombie Survival Guide
-How To Win Friends And Influence People
-The Design of Everyday Things
-Dragonlance Chronicles
-The Nibelungenlied
-On War
-The basque History of the World
-Lord of the Rings
-Secrets of the Samurai
-How Not To Be Wrong
-Dice Games Properly Explained
-The life-changing magic of tidying up
-Old Man's War
-Blindsight
-Last Call
-Streetfight
-Consider Phlebas
-Under the Black Flag
-Marching Powder
-The Punch Escrow
-Baptism of Fire
-The Time of Contempt
-Salt A World History
-The Color of Magic
-The Last Wish
-Flowers for Algernon
-Shogun
-Dune
-Neuromancer
-The Lies of Locke Lamora
-The Book of the New Sun 
-Mistborn
-Watership Down
-The Goblin Emperor
-The Six-Gun Tarot
-Term Limits
-Sundiver
-Guns, Germs, and Steel
-Architecture Through The Ages
-Data Structures For Game Programmers
-The Name of the Wind
-The Dictionary of Mythology
-The Book of Games
-H.P Lovecraft The Fiction
-The Greatest Adventures of Sherlock Holmes
-The Books of Earthsea
-The Vorrh
-Perdido Street Station
-Japanese Tales
-Who Fears Death
-Promise of Blood
-The Crimson Campaign
-Kill Six Billion Demons 1
-Kill Six Billion Demons 2
-Kill Six Billion Demons 3
-Legend of the Hero
-Crisis on Infinite Earths
-Batman: Year One
-The Kingdom
-Sex Criminals 1
-Sex Criminals 2
-Kingdom Come
-Batman: The Dark Knight Returns
-Superman: Red Son
-Transmetropolitan 1
-Batman The Killing Joke
-Batman The Dark Knight Strikes Again
-Tokyo Ghost
-Head Lopper
-Dark Nights: Metal
-Watchmen
-The Black Monday Murders
-The Art of Grasshopper Manufacture
-Pendragon The Soldiers of Halla
-Battle Royale
-The Paper Magician
-Dhalgren
-Fear and Loathing In Las Vegas
-Rendezvous with Rama
-Hard To Be A God
-A Cook's Tour
-Kitchen Confidential
-The Elric Saga Part I
-The Elric Saga Part II
-Disrupted
-The Dark Forest
-Jurassic Park
-Introduction to the Theory of Computation
-Game Design Secrets of the Sages
-The Metropolitan Museum of Art Guide
-American Gods
-Neverwhere
-Fahrenheit 451
-A Deepness In The Sky
-A Voyage To Arcturus
-Lord of Light
-Hyperion
-The Way of Kings
-The left Hand of Darkness
-Good Omens
-Obsidian and Blood
-The Nekropolis Archives
-The New Penguin History of the World
-The Art of Failure
-A Game of Thrones
-A Clash of Kings
-A Storm of Swords
-A Feast For Crows
-A Dance With Dragons
-The Outcast Hours
-Light
-An Excess Male
-The Disaster Artist
-How To Do Things With Video Games
-A Scanner Darkly
-The Man In The High Castle
-Metro 2033
-Raven Strategem
-Ninefox Gambit
-Count Zero
-Burning Chrome
-The Catcher In The Rye
-The Sorrow of War
-Coin Locker Babies
-Slaughterhouse 5
-The Mahabharata
-Africa A Biography of the Continent
-Masters of Doom
-A Canticle For Leibowitz
-The Yiddish Policeman's Union
-Medium Raw
-Please Kill Me
-The Paper Menagerie
-Starfish
-The Player of Games
-Persuasive Games
-Morpheus Road The Light
-Hellboy Seed of Destruction
-Saga 1
-East of West 1
-Low 1
-On Food and Cooking
-Ratio
-Portugal at Table
-Going Solo In The Kitchen
-Paul Prudhomme's Louisiana Kitchen
-The New Spanish Table
-I'm Just Here For The Food
-Slow Cooker One Pot & Casserole
-The Everything Medican Cookbook
-The Indian Cooking Course
-The Sushi Experience
-Good Eats The Early Years
-The Complete America's Test Kitchen Cookbook
-Tokyo Cult Recipes
-Chinatowns
-The Joy of Cooking
-Atlas Obscura
+Blood of Elves/books
+The Unreasoning Mask/books
+China Underground/books
+If Then/books
+The Master of Go/books
+Weapons of Math Destruction/books
+flow/books
+Master and Commander/books
+The Moon Is A Harsh Mistress/books
+The Shards of Heaven/books
+A Pattern Language/books
+Quicksilver/books
+Monster Hunter International/books
+Arrival/books
+Understanding China/books
+Jade City/books
+The Peripheral/books
+Too Like The Lightning/books
+Altered Carbon/books
+Leviathan Wakes/books
+Stranger In A Strange Land/books
+The Difference Engine/books
+Japanese Hiragana & Katakana For Beginners/books
+Essential Japanese Grammar/books
+Introduction to Algorithms/books
+Leviathan/books
+The Big Book of Barry Ween/books
+Borne/books/books
+The Foundation Trilogy/books
+World War Z/books
+The Odyssey/books
+The Hobbit/books
+Area X/books
+Bullfinch's Mythology/books
+The Arabian Nights/books
+Rosencrantz & Guildenstern Are Dead/books
+Children of Blood and Bone/books
+Spook Country/books
+Dirk Gently's Hollistic Detective Agency/books
+The Amulet of Samarkand/books
+Mona Lisa Overdrive/books
+The Tombs of Atuan/books
+Nausicaa and the Valley of the Wind I/books
+Nausicaa and the Valley of the Wind II/books
+The Encyclopedia of Demons and Demonology/books
+Business and Technical Communication/books
+Universal Principles of Design/books
+How The Internet Works/books
+How Networks Work/books
+How Software Works/books
+How Microprocessors Work/books
+The Art of Game Design/books
+David Perry on Game Design/books
+Playing At The World/books
+The Game Design Reader/books
+Chronicles of the Black Company/books
+The Divine Comedy/books
+Al Capone's Beer Wars/books
+Ravenor The Omnibus/books
+Eisenhorn/books
+The UX Book/books
+Operating Systems Internals and Design Principles/books
+Challenges For Game Designers/books
+Game Writing Narrative Skills For Video Games/books
+Game Design Workshop/books
+Kotlin Programming/books
+9 Algorithms That Changed The World/books
+Mathematics For 3D Game Programming & Computer Graphics/books
+Game Mechanics/books
+Game Programming Patterns/books
+Concepts of Programming Languages/books
+Characteristics of Games/books
+Level Up/books
+Speed Tribes/books
+Yakuza Japan's Criminal Underworld/books
+My Drunk Kitchen/books
+The Passage/books
+Jonathan Strange & Mr Norrell/books
+Exploding the Phone/books
+PoC || GTFO/books
+Game Feel/books
+GameTek/books
+Designing Games/books
+Indie Games From Dream To Delivery/books
+The Windup Girl/books
+Infinite Jest/books
+Godel Escher Bach/books
+King of Heists/books
+The Quantum Thief/books
+Black Leopard Red Wolf/books
+10 Billion Days and 100 Billion Nights/books
+The Luminaries/books
+The Savage Tales of Solomon Kane/books
+The Coming of Conan The Cimmerian/books
+Javascript & Jquery/books
+House of Leaves/books
+Essential Dr. Strange/books
+Cracking the Coding Interview/books
+Killing Commentadore/books
+Norwegian Wood/books
+The Wind-Up Bird Chronicles/books
+Kafka on the Shore/books
+Hard-Boiled Wonderland and the End of the World/books
+After the Quake/books
+Sputnik Sweetheart/books
+A Wild Sheep Chase/books
+Wind/Pinball/books
+Blind Willow, Sleeping Woman/books
+After Dark/books
+Dance Dance Dance/books
+1Q84/books
+Colorless Tsukuru Tazaki and His Years of Pilgrimmage/books
+The Elephant Vanishes/books
+The Box Man/books
+The Zombie Survival Guide/books
+How To Win Friends And Influence People/books
+The Design of Everyday Things/books
+Dragonlance Chronicles/books
+The Nibelungenlied/books
+On War/books
+The basque History of the World/books
+Lord of the Rings/books
+Secrets of the Samurai/books
+How Not To Be Wrong/books
+Dice Games Properly Explained/books
+The life-changing magic of tidying up/books
+Old Man's War/books
+Blindsight/books
+Last Call/books
+Streetfight/books
+Consider Phlebas/books
+Under the Black Flag/books
+Marching Powder/books
+The Punch Escrow/books
+Baptism of Fire/books
+The Time of Contempt/books
+Salt A World History/books
+The Color of Magic/books
+The Last Wish/books
+Flowers for Algernon/books
+Shogun/books
+Dune/books
+Neuromancer/books
+The Lies of Locke Lamora/books
+The Book of the New Sun /books
+Mistborn/books
+Watership Down/books
+The Goblin Emperor/books
+The Six-Gun Tarot/books
+Term Limits/books
+Sundiver/books
+Guns, Germs, and Steel/books
+Architecture Through The Ages/books
+Data Structures For Game Programmers/books
+The Name of the Wind/books
+The Dictionary of Mythology/books
+The Book of Games/books
+H.P Lovecraft The Fiction/books
+The Greatest Adventures of Sherlock Holmes/books
+The Books of Earthsea/books
+The Vorrh/books
+Perdido Street Station/books
+Japanese Tales/books
+Who Fears Death/books
+Promise of Blood/books
+The Crimson Campaign/books
+Kill Six Billion Demons 1/books
+Kill Six Billion Demons 2/books
+Kill Six Billion Demons 3/books
+Legend of the Hero/books
+Crisis on Infinite Earths/books
+Batman: Year One/books
+The Kingdom/books
+Sex Criminals 1/books
+Sex Criminals 2/books
+Kingdom Come/books
+Batman: The Dark Knight Returns/books
+Superman: Red Son/books
+Transmetropolitan 1/books
+Batman The Killing Joke/books
+Batman The Dark Knight Strikes Again/books
+Tokyo Ghost/books
+Head Lopper/books
+Dark Nights: Metal/books
+Watchmen/books
+The Black Monday Murders/books
+The Art of Grasshopper Manufacture/books
+Pendragon The Soldiers of Halla/books
+Battle Royale/books
+The Paper Magician/books
+Dhalgren/books
+Fear and Loathing In Las Vegas/books
+Rendezvous with Rama/books
+Hard To Be A God/books
+A Cook's Tour/books
+Kitchen Confidential/books
+The Elric Saga Part I/books
+The Elric Saga Part II/books
+Disrupted/books
+The Dark Forest/books
+Jurassic Park/books
+Introduction to the Theory of Computation/books
+Game Design Secrets of the Sages/books
+The Metropolitan Museum of Art Guide/books
+American Gods/books
+Neverwhere/books
+Fahrenheit 451/books
+A Deepness In The Sky/books
+A Voyage To Arcturus/books
+Lord of Light/books
+Hyperion/books
+The Way of Kings/books
+The left Hand of Darkness/books
+Good Omens/books
+Obsidian and Blood/books
+The Nekropolis Archives/books
+The New Penguin History of the World/books
+The Art of Failure/books
+A Game of Thrones/books
+A Clash of Kings/books
+A Storm of Swords/books
+A Feast For Crows/books
+A Dance With Dragons/books
+The Outcast Hours/books
+Light/books
+An Excess Male/books
+The Disaster Artist/books
+How To Do Things With Video Games/books
+A Scanner Darkly/books
+The Man In The High Castle/books
+Metro 2033/books
+Raven Strategem/books
+Ninefox Gambit/books
+Count Zero/books
+Burning Chrome/books
+The Catcher In The Rye/books
+The Sorrow of War/books
+Coin Locker Babies/books
+Slaughterhouse 5/books
+The Mahabharata/books
+Africa A Biography of the Continent/books
+Masters of Doom/books
+A Canticle For Leibowitz/books
+The Yiddish Policeman's Union/books
+Medium Raw/books
+Please Kill Me/books
+The Paper Menagerie/books
+Starfish/books
+The Player of Games/books
+Persuasive Games/books
+Morpheus Road The Light/books
+Hellboy Seed of Destruction/books
+Saga 1/books
+East of West 1/books
+Low 1/books
+On Food and Cooking/books
+Ratio/books
+Portugal at Table/books
+Going Solo In The Kitchen/books
+Paul Prudhomme's Louisiana Kitchen/books
+The New Spanish Table/books
+I'm Just Here For The Food/books
+Slow Cooker One Pot & Casserole/books
+The Everything Medican Cookbook/books
+The Indian Cooking Course/books
+The Sushi Experience/books
+Good Eats The Early Years/books
+The Complete America's Test Kitchen Cookbook/books
+Tokyo Cult Recipes/books
+Chinatowns/books
+The Joy of Cooking/books
+Atlas Obscura/books
+/books
