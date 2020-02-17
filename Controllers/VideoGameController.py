@@ -1,60 +1,50 @@
 import requests
-from secrets import secrets
-import xml.etree.ElementTree as ET
-from genre_controller import GenreController
+from Controllers.secrets import secrets
+from Controllers.genre_controller import GenreController
 from boto3.dynamodb.conditions import Key
 
-class BookController(GenreController):
+class VideoGameController(GenreController):
+    
     def __init__(self):
-        self.GR_API_KEY = secrets['Goodreads_API_Key']
-        self.lookup_req_template = "https://www.goodreads.com/search/index.xml?key={}&q={}&page={}"
-        self.individual_item_template = "https://www.goodreads.com/book/show/{}.xml?key={}"
-        self.guid_prefix = "BK-"
+        self.GB_API_KEY = secrets['Giant_Bomb_API_Key']
+        self.header = {'User-Agent': 'Asylumrunner_Database_Tool'}
+        self.lookup_req_template = "http://www.giantbomb.com/api/search/?api_key={}&format=json&query=%22{}%22&resources=game"
+        self.game_key_req_template = "https://www.giantbomb.com/api/game/{}/?api_key={}&format=json"
+        self.guid_prefix = "VG-"
         super().__init__()
 
     def lookup_entry(self, title, **kwargs):
         try:
-            req = requests.get(self.lookup_req_template.format(self.GR_API_KEY, title, 1))
-            root = ET.fromstring(req.content)
-            results = root.find('./search/results')
-            response = [{'name': book.find('./best_book/title').text, 'author': book.find('./best_book/author/name').text, 'guid': book.find('./best_book/id').text, 'original_publication_date': book.find('./original_publication_year').text} for book in results]
+            req = requests.get(self.lookup_req_template.format(self.GB_API_KEY, title), headers=self.header)
+            response = [{'name': game['name'], 'summary': game['deck'], 'release_year': game['expected_release_year'], 'guid': game['guid'], 'platforms': [platform['name'] for platform in game['platforms']]} for game in req.json()['results']]
         except Exception as e:
-            print("Exception in lookup for title {} in BookController: {}".format(title, e))
+            print("Exception in lookup for title {} in VideoGameController: {}".format(title, e))
             response = [{
                 "Exception": str(e)
             }]
         return response
-
+    
     def put_key(self, key):
         try:
-            req = requests.get(self.individual_item_template.format(key, self.GR_API_KEY))
-            if(req.status_code == 200):
-                root = ET.fromstring(req.content)
-                result = root.find('./book')
-                work = result.find('./work')
-                name = result.find('./title').text
-                author = result.find('./authors/author/name').text
-                guid = result.find('./id').text
-                year_published = work.find('./original_publication_year').text
-                isbn = result.find('./isbn13').text
-                description = result.find('./description').text
-
+            req = requests.get(self.game_key_req_template.format(key, self.GB_API_KEY), headers=self.header)
+            if(req.status_code == 200 and req.json()['error'] == 'OK'):
+                game = req.json()['results']
                 response = self.dynamodb.put_item(
                     Item={
-                        'guid': self.guid_prefix + guid,
-                        'original_guid': guid,
-                        'name': name,
-                        'author': author,
-                        'release_year': year_published,
-                        'isbn': isbn,
-                        'summary': description
+                        'guid': self.guid_prefix + game['guid'],
+                        'original_guid': game['guid'],
+                        'name': game['name'],
+                        'release_year': str(game['expected_release_year']),
+                        'platform': [platform['name'] for platform in game['platforms']],
+                        'summary': game['deck']
                     }
                 )
                 print(response)
                 return True
-            return False
+            else:
+                return False
         except Exception as e:
-            print("Exception while putting key {} in database via BookController: {}".format(key, e))
+            print("Exception while putting key {} in database via VideoGameController: {}".format(key, e))
             return False
     
     def get_key(self, key):
@@ -67,12 +57,13 @@ class BookController(GenreController):
             )
             if(db_response['Item']):
                 response['item'] = db_response['Item']
+                response['item']['platform'] = list(response['item']['platform'])
                 response['status'] = 'OK'
         except Exception as e:
-            print("Exception while retrieving key {} from database via BookController: {}".format(key, e))
+            print("Exception while retrieving key {} from database via VideoGameController: {}".format(key, e))
             response['error_message'] = str(e)
         return response
-
+    
     def delete_key(self, key):
         response = {'status': 'FAIL'}
         try:
@@ -84,12 +75,13 @@ class BookController(GenreController):
             )
             if(db_response['Attributes']):
                 response['item'] = db_response['Attributes']
+                response['item']['platform'] = list(response['item']['platform'])
                 response['status'] = 'OK'
         except Exception as e:
-            print("Exception while deleting key {} from database via BookController: {}".format(key, e))
+            print("Exception while deleting key {} from database via VideoGameController: {}".format(key, e))
             response['error_message'] = str(e)
         return response
-    
+
     def get_table(self):
         response = {}
         db_response = {}
@@ -106,9 +98,10 @@ class BookController(GenreController):
                     )
                 if(db_response['Items']):
                     response['Items'] = db_response['Items']
+            for item in response['Items']: 
+                    item['platform'] = list(item['platform'])
         except Exception as e:
-            print("Exception while getting book table from database: {}".format(e))
+            print("Exception while getting video game table from database: {}".format(e))
             response['error_message'] = str(e)
         return response
-
 

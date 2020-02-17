@@ -1,5 +1,5 @@
 import requests
-from genre_controller import GenreController
+from Controllers.genre_controller import GenreController
 import xml.etree.ElementTree as ET
 import concurrent.futures
 from boto3.dynamodb.conditions import Key

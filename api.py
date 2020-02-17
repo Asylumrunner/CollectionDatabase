@@ -1,9 +1,9 @@
 import flask
-from VideoGameController import VideoGameController
-from BookController import BookController
-from MovieController import MovieController
-from BoardGameController import BoardGameController
-from RPGController import RPGController
+from Controllers.VideoGameController import VideoGameController
+from Controllers.BookController import BookController
+from Controllers.MovieController import MovieController
+from Controllers.BoardGameController import BoardGameController
+from Controllers.RPGController import RPGController
 
 app = flask.Flask(__name__)
 app.config['DEBUG'] = True

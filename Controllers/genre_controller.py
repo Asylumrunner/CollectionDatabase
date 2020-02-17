@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
 import boto3
-from secrets import secrets
+from Controllers.secrets import secrets
 
 class GenreController(ABC):
 

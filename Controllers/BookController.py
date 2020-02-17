@@ -1,62 +1,62 @@
 import requests
-import concurrent.futures
-from secrets import secrets
-from genre_controller import GenreController
+from Controllers.secrets import secrets
+import xml.etree.ElementTree as ET
+from Controllers.genre_controller import GenreController
 from boto3.dynamodb.conditions import Key
 
-class MovieController(GenreController):
+class BookController(GenreController):
     def __init__(self):
-        self.MDB_API_KEY = secrets['MovieDB_Key']
-        self.lookup_req_template = "https://api.themoviedb.org/3/search/movie?api_key={}&query={}&include_adult=true"
-        self.movie_lookup_template = "https://api.themoviedb.org/3/movie/{}?api_key={}"
-        self.guid_prefix = "MV-"
+        self.GR_API_KEY = secrets['Goodreads_API_Key']
+        self.lookup_req_template = "https://www.goodreads.com/search/index.xml?key={}&q={}&page={}"
+        self.individual_item_template = "https://www.goodreads.com/book/show/{}.xml?key={}"
+        self.guid_prefix = "BK-"
         super().__init__()
 
-    def movie_lookup(self, guid):
-        movie = requests.get(self.movie_lookup_template.format(guid, self.MDB_API_KEY)).json()
-        response = {'name': movie['title'], 'guid': movie['id'], 'release_year': movie['release_date'][:4], 'language': movie['original_language'], 'summary': movie['overview'], 'runtime': movie['runtime']}
-        return response
-
     def lookup_entry(self, title, **kwargs):
-        response = []
         try:
-            req = requests.get(self.lookup_req_template.format(self.MDB_API_KEY, title))
-
-            with concurrent.futures.ThreadPoolExecutor() as executor:
-                lookups = executor.map(self.movie_lookup, [result['id'] for result in req.json()['results']])
-            
-            for lookup in lookups:
-                response.append(lookup)
+            req = requests.get(self.lookup_req_template.format(self.GR_API_KEY, title, 1))
+            root = ET.fromstring(req.content)
+            results = root.find('./search/results')
+            response = [{'name': book.find('./best_book/title').text, 'author': book.find('./best_book/author/name').text, 'guid': book.find('./best_book/id').text, 'original_publication_date': book.find('./original_publication_year').text} for book in results]
         except Exception as e:
-            print("Exception in lookup for title {} in MovieController: {}".format(title, e))
+            print("Exception in lookup for title {} in BookController: {}".format(title, e))
             response = [{
                 "Exception": str(e)
             }]
         return response
-    
+
     def put_key(self, key):
         try:
-            req = requests.get(self.movie_lookup_template.format(key, self.MDB_API_KEY))
+            req = requests.get(self.individual_item_template.format(key, self.GR_API_KEY))
             if(req.status_code == 200):
-                movie = req.json()
+                root = ET.fromstring(req.content)
+                result = root.find('./book')
+                work = result.find('./work')
+                name = result.find('./title').text
+                author = result.find('./authors/author/name').text
+                guid = result.find('./id').text
+                year_published = work.find('./original_publication_year').text
+                isbn = result.find('./isbn13').text
+                description = result.find('./description').text
+
                 response = self.dynamodb.put_item(
                     Item={
-                        'guid': self.guid_prefix + str(movie['id']),
-                        'original_guid': str(movie['id']),
-                        'name': movie['title'],
-                        'release_year': movie['release_date'][:4],
-                        'language': movie['original_language'],
-                        'summary': movie['overview'],
-                        'duration': str(movie['runtime'])
+                        'guid': self.guid_prefix + guid,
+                        'original_guid': guid,
+                        'name': name,
+                        'author': author,
+                        'release_year': year_published,
+                        'isbn': isbn,
+                        'summary': description
                     }
                 )
                 print(response)
                 return True
             return False
         except Exception as e:
-            print("Exception while putting key {} in database via MovieController: {}".format(key, e))
+            print("Exception while putting key {} in database via BookController: {}".format(key, e))
             return False
-
+    
     def get_key(self, key):
         response = {'status': 'FAIL'}
         try:
@@ -69,7 +69,7 @@ class MovieController(GenreController):
                 response['item'] = db_response['Item']
                 response['status'] = 'OK'
         except Exception as e:
-            print("Exception while retrieving key {} from database via MovieController: {}".format(key, e))
+            print("Exception while retrieving key {} from database via BookController: {}".format(key, e))
             response['error_message'] = str(e)
         return response
 
@@ -86,7 +86,7 @@ class MovieController(GenreController):
                 response['item'] = db_response['Attributes']
                 response['status'] = 'OK'
         except Exception as e:
-            print("Exception while deleting key {} from database via MovieController: {}".format(key, e))
+            print("Exception while deleting key {} from database via BookController: {}".format(key, e))
             response['error_message'] = str(e)
         return response
     
@@ -107,6 +107,8 @@ class MovieController(GenreController):
                 if(db_response['Items']):
                     response['Items'] = db_response['Items']
         except Exception as e:
-            print("Exception while getting movie table from database: {}".format(e))
+            print("Exception while getting book table from database: {}".format(e))
             response['error_message'] = str(e)
         return response
+
+
