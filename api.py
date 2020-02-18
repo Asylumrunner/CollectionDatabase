@@ -94,17 +94,18 @@ def call_backup(controller):
 
 @app.route('/backup', methods=['PUT'])
 def backup_tables():
-    response = {'failed_backups': 0, 'objects': [], 'error_messages': []}
+    response = {'failed_backups': 0, 'successful_backups': 0, 'error_messages': []}
     try:
         with concurrent.futures.ThreadPoolExecutor() as executor:
             backup_results = [executor.submit(call_backup, controller) for controller in controllers]
         for controller_response in concurrent.futures.as_completed(backup_results):
-            print("Received response for controller {}".format(controller_response['controller']))
-            if(controller_response['status'] == 'FAIL'):
+            result_body = controller_response.result()
+            print("Received response for controller {}".format(result_body))
+            if(result_body['status'] == 'FAIL'):
                 response['failed_backups'] += 1
-                response['error_messages'].append({'Controller': controller_response['controller'], 'error_message': controller_response['error_message']})
+                response['error_messages'].append({'Controller': result_body['controller'], 'error_message': result_body['error_message']})
             else:
-                response['objects'].append({'Controller': controller_response['controller'], 'error_message': controller_response['object']})
+                response['successful_backups'] += 1
         json_response = flask.jsonify(response)
     except Exception as e:
         print("Exception while backing up tables: {}".format(e))
@@ -112,6 +113,20 @@ def backup_tables():
         json_response = flask.jsonify(response)
         json_response.status_code = 500
     return json_response
+
+@app.route('/lib-compare/<media>/<key>', methods=['GET'])
+def lookup_in_library(media, key):
+    if media not in controllers:
+        response = flask.jsonify('Invalid media type')
+        response.status_code(400)
+    else:
+        lookup_result = controllers[media].library_compare(key)
+        if(lookup_result['status'] != 'FAIL'):
+            response = flask.jsonify(lookup_result)
+        else:
+            response = flask.jsonify(lookup_result['error_message'] if 'error_message' in lookup_result else 'Lookup failed')
+            response.status_code = 500
+    return response
 """
 @app.route('/<media>')
 def clear_table(media) """

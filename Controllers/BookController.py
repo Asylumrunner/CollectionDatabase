@@ -1,8 +1,9 @@
 import requests
-from Controllers.secrets import secrets
+from secrets import secrets
 import xml.etree.ElementTree as ET
-from Controllers.genre_controller import GenreController
+from .genre_controller import GenreController
 from boto3.dynamodb.conditions import Key
+from Collections.SeattlePublicLibrary import SeattlePublicLibrary
 import json
 
 class BookController(GenreController):
@@ -11,6 +12,7 @@ class BookController(GenreController):
         self.lookup_req_template = "https://www.goodreads.com/search/index.xml?key={}&q={}&page={}"
         self.individual_item_template = "https://www.goodreads.com/book/show/{}.xml?key={}"
         self.guid_prefix = "BK-"
+        self.library = SeattlePublicLibrary()
         super().__init__()
 
     def lookup_entry(self, title, **kwargs):
@@ -128,4 +130,21 @@ class BookController(GenreController):
         except Exception as e:
             print("Exception while backing up book table from database: {}".format(e))
             response['error_message'] = str(e)
+        return response
+    
+    def library_compare(self, key):
+        response = {'status': 'FAIL', 'match': False}
+        lookup_response = self.get_key(key)
+        if(lookup_response['status'] == 'OK'):
+            response['DB_Item'] = lookup_response['item']
+            isbn = lookup_response['item']['isbn']
+            library_lookup_response = self.library.search_collection_by_isbn(isbn)
+            if(library_lookup_response['status'] == 'OK' and library_lookup_response['library_response']):
+                response['match'] = True
+                response['Library_Item'] = library_lookup_response['library_response']
+                response['status'] = 'OK'
+            elif(library_lookup_response['status'] == 'FAIL'):
+                response['error_message'] = library_lookup_response['error_message']
+            else:
+                response['status'] = 'OK'
         return response
