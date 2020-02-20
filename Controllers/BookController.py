@@ -120,7 +120,7 @@ class BookController(GenreController):
             table_contents = self.get_table()
             if('error_message' not in table_contents and 'Items' in table_contents):
                 guids = {'guids': [item['original_guid'] for item in table_contents['Items']]}
-                s3_response = self.s3.put_object(Key=self.guid_prefix + "Backup", Body=bytes(json.dumps(guids).encode('UTF-8')))
+                s3_response = self.s3.put(Body=bytes(json.dumps(guids).encode('UTF-8')))
                 response['object'] = s3_response
                 response['status'] = 'OK'
             elif('error_message' in table_contents):

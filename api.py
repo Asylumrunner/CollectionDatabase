@@ -114,6 +114,30 @@ def backup_tables():
         json_response.status_code = 500
     return json_response
 
+def call_restore(controller):
+    return controllers[controller].back_up_table()
+
+@app.route('/restore', methods=['PUT'])
+def restore_tables():
+    response = {'failed_restores': 0, 'successful_restores': 0, 'error_messages': []}
+    try:
+        with concurrent.futures.ThreadPoolExecutor() as executor:
+            restore_results = [executor.submit(call_restore, controller) for controller in controllers]
+        for controller_response in concurrent.futures.as_completed(restore_results):
+            result_body = controller_response.result()
+            print("Received response for controller {}".format(result_body))
+            if(result_body['status'] == 'FAIL'):
+                response['failed_restores'] += 1
+                response['error_messages'].append({'Controller': result_body['controller'], 'error_message': result_body['error_message']})
+            else:
+                response['successful_restores'] += 1
+        json_response = flask.jsonify(response)
+    except Exception as e:
+        print("Exception while backing up tables: {}".format(e))
+        response['error_message'] = str(e)
+        json_response = flask.jsonify(response)
+        json_response.status_code = 500
+
 @app.route('/lib-compare/<media>/<key>', methods=['GET'])
 def lookup_in_library(media, key):
     if media not in controllers:

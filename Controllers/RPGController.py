@@ -128,7 +128,7 @@ class RPGController(GenreController):
             table_contents = self.get_table()
             if('error_message' not in table_contents and 'Items' in table_contents):
                 guids = {'guids': [item['original_guid'] for item in table_contents['Items']]}
-                s3_response = self.s3.put_object(Key=self.guid_prefix + "Backup", Body=bytes(json.dumps(guids).encode('UTF-8')))
+                s3_response = self.s3.put(Body=bytes(json.dumps(guids).encode('UTF-8')))
                 response['object'] = s3_response
                 response['status'] = 'OK'
             elif('error_message' in table_contents):
@@ -139,3 +139,33 @@ class RPGController(GenreController):
             print("Exception while backing up RPG table from database: {}".format(e))
             response['error_message'] = str(e)
         return response
+
+    def restore_table(self):
+        response = {'status': 'FAIL', 'controller': 'VideoGame'}
+        try:
+            s3_response = self.s3.get()
+            s3_response_body = json.loads(s3_response['Body'].read().decode("utf-8"))
+            for guid in s3_response_body['guids']:
+                self.put_key(guid)
+            response['object'] = s3_response_body
+            response['status'] = 'OK'
+        except Exception as e:
+            print('Exception while restoring video game table from database: {}'.format(e))
+            print['error_message'] = str(e)
+        return response
+
+
+    def restore_table(self):
+        response = {'status': 'FAIL', 'controller': 'VideoGame'}
+        try:
+            s3_response = self.s3.get()
+            s3_response_body = json.loads(s3_response['Body'].read().decode("utf-8"))
+            for guid in s3_response_body['guids']:
+                self.put_key(guid)
+            response['object'] = s3_response_body
+            response['status'] = 'OK'
+        except Exception as e:
+            print('Exception while restoring video game table from database: {}'.format(e))
+            print['error_message'] = str(e)
+        return response
+
