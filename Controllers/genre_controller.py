@@ -31,6 +31,10 @@ class GenreController(ABC):
     @abstractmethod
     def back_up_table(self):
         pass
+    
+    @abstractmethod
+    def restore_table(self):
+        pass
 """
     @abstractmethod
     def wipe_table(self):
