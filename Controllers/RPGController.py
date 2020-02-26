@@ -23,7 +23,7 @@ class RPGController(GenreController):
         item_dict['summary'] = search_root.find('./description').text
         return item_dict
     
-    def lookup_entry(self, title, **kwargs):
+    def lookup_entry(self, title, picky=False):
         response = []
         try:
             req = requests.get(self.lookup_req_template.format(title))
@@ -34,6 +34,10 @@ class RPGController(GenreController):
             
             for lookup in lookups:
                 response.append(lookup)
+            
+            if picky:
+                best_game = self.fuzzy_string_match(title, [game['name'] for game in response])
+                response = [game for game in response if game['name'] == best_game[0]]
         except Exception as e:
             print("Exception in lookup for title {} in RPGController: {}".format(title, e))
             response = [{
@@ -156,7 +160,7 @@ class RPGController(GenreController):
 
 
     def restore_table(self):
-        response = {'status': 'FAIL', 'controller': 'VideoGame'}
+        response = {'status': 'FAIL', 'controller': 'RPG'}
         try:
             s3_response = self.s3.get()
             s3_response_body = json.loads(s3_response['Body'].read().decode("utf-8"))

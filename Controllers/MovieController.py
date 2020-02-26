@@ -18,7 +18,7 @@ class MovieController(GenreController):
         response = {'name': movie['title'], 'guid': movie['id'], 'release_year': movie['release_date'][:4], 'language': movie['original_language'], 'summary': movie['overview'], 'runtime': movie['runtime']}
         return response
 
-    def lookup_entry(self, title, **kwargs):
+    def lookup_entry(self, title, picky=False):
         response = []
         try:
             req = requests.get(self.lookup_req_template.format(self.MDB_API_KEY, title))
@@ -28,6 +28,10 @@ class MovieController(GenreController):
             
             for lookup in lookups:
                 response.append(lookup)
+            
+            if picky:
+                best_movie = self.fuzzy_string_match(title, [movie['name'] for movie in response])
+                response = [movie for movie in response if movie['name'] == best_movie[0]]
         except Exception as e:
             print("Exception in lookup for title {} in MovieController: {}".format(title, e))
             response = [{
@@ -131,7 +135,7 @@ class MovieController(GenreController):
         return response
 
     def restore_table(self):
-        response = {'status': 'FAIL', 'controller': 'VideoGame'}
+        response = {'status': 'FAIL', 'controller': 'Movie'}
         try:
             s3_response = self.s3.get()
             s3_response_body = json.loads(s3_response['Body'].read().decode("utf-8"))

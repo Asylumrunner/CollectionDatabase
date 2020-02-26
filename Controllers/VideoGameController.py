@@ -14,10 +14,13 @@ class VideoGameController(GenreController):
         self.guid_prefix = "VG-"
         super().__init__()
 
-    def lookup_entry(self, title, **kwargs):
+    def lookup_entry(self, title, picky=False):
         try:
             req = requests.get(self.lookup_req_template.format(self.GB_API_KEY, title), headers=self.header)
             response = [{'name': game['name'], 'summary': game['deck'], 'release_year': game['expected_release_year'], 'guid': game['guid'], 'platforms': [platform['name'] for platform in game['platforms']]} for game in req.json()['results']]
+            if picky:
+                best_game = self.fuzzy_string_match(title, [game['name'] for game in response])
+                response = [game for game in response if game['name'] == best_game[0]]
         except Exception as e:
             print("Exception in lookup for title {} in VideoGameController: {}".format(title, e))
             response = [{

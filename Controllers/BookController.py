@@ -15,12 +15,16 @@ class BookController(GenreController):
         self.library = SeattlePublicLibrary()
         super().__init__()
 
-    def lookup_entry(self, title, **kwargs):
+    def lookup_entry(self, title, picky=False):
         try:
             req = requests.get(self.lookup_req_template.format(self.GR_API_KEY, title, 1))
             root = ET.fromstring(req.content)
             results = root.find('./search/results')
             response = [{'name': book.find('./best_book/title').text, 'author': book.find('./best_book/author/name').text, 'guid': book.find('./best_book/id').text, 'original_publication_date': book.find('./original_publication_year').text} for book in results]
+
+            if picky:
+                best_book = self.fuzzy_string_match(title, [book['name'] for book in response])
+                response = [book for book in response if book['name'] == best_book[0]]
         except Exception as e:
             print("Exception in lookup for title {} in BookController: {}".format(title, e))
             response = [{
@@ -141,10 +145,36 @@ class BookController(GenreController):
             library_lookup_response = self.library.search_collection_by_isbn(isbn)
             if(library_lookup_response['status'] == 'OK' and library_lookup_response['library_response']):
                 response['match'] = True
-                response['Library_Item'] = library_lookup_response['library_response']
+                response['Library_Item'] = self.consolidate_library_results(library_lookup_response['library_response'])
                 response['status'] = 'OK'
             elif(library_lookup_response['status'] == 'FAIL'):
                 response['error_message'] = library_lookup_response['error_message']
             else:
                 response['status'] = 'OK'
         return response
+
+    def restore_table(self):
+        response = {'status': 'FAIL', 'controller': 'Book'}
+        try:
+            s3_response = self.s3.get()
+            s3_response_body = json.loads(s3_response['Body'].read().decode("utf-8"))
+            for guid in s3_response_body['guids']:
+                self.put_key(guid)
+            response['object'] = s3_response_body
+            response['status'] = 'OK'
+        except Exception as e:
+            print('Exception while restoring book table from database: {}'.format(e))
+            print['error_message'] = str(e)
+        return response
+
+    def consolidate_library_results(self, raw_library_response):
+        consolidated_lib_res = []
+        for item in raw_library_response:
+            matches = [found_item for found_item in consolidated_lib_res if found_item['bibnum'] == item['bibnum']]
+            if matches:
+                matches[0]['itemcount'] = str(int(matches[0]['itemcount']) + 1)
+                if item['itemlocation'] not in matches[0]['itemlocation']:
+                    matches[0]['itemlocation'] += (", " + item['itemlocation'])
+            else:
+                consolidated_lib_res.append(item)
+        return consolidated_lib_res

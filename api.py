@@ -5,6 +5,7 @@ from Controllers.MovieController import MovieController
 from Controllers.BoardGameController import BoardGameController
 from Controllers.RPGController import RPGController
 import concurrent.futures
+import json
 
 app = flask.Flask(__name__)
 app.config['DEBUG'] = True
@@ -33,6 +34,27 @@ def lookup_data(media, title):
         else:
             response = flask.jsonify(lookup_response)
     return response
+
+@app.route('/lookup/bulk/<media>', methods=['GET'])
+def bulk_lookup_data(media):
+    if media not in controllers:
+        response = flask.jsonify('Invalid media type')
+        response.status_code = 400
+    else:
+        request_dict = flask.request.get_json()
+        if "titles" not in request_dict:
+            response = flask.jsonify("No titles found. Please insert titles as list under key \'titles\'")
+            response.status_code = 400
+        else:
+            total_results = []
+            picky = "picky" in request_dict and request_dict["picky"]
+            with concurrent.futures.ThreadPoolExecutor() as executor:
+                lookups = [executor.submit(controllers[media].lookup_entry, title, picky) for title in request_dict['titles']]
+            for lookup in concurrent.futures.as_completed(lookups):
+                total_results.append(lookup.result())
+            response = flask.jsonify(total_results)
+    return response
+
 
 @app.route('/<media>/<key>', methods=['PUT'])
 def put_entry(media, key):
@@ -138,11 +160,27 @@ def restore_tables():
         json_response = flask.jsonify(response)
         json_response.status_code = 500
 
+@app.route('/lib-compare/<media>', methods=['GET'])
 @app.route('/lib-compare/<media>/<key>', methods=['GET'])
-def lookup_in_library(media, key):
+def lookup_in_library(media, key=None):
     if media not in controllers:
         response = flask.jsonify('Invalid media type')
         response.status_code(400)
+    elif not key:
+        table_get_result = controllers[media].get_table()
+        if('Items' in table_get_result and 'error_message' not in table_get_result):
+            items = table_get_result['Items']
+            
+            with concurrent.futures.ThreadPoolExecutor() as executor:
+                lookup_results = [executor.submit(controllers[media].library_compare, key) for key in [item['original_guid'] for item in items]]
+
+            results = {"lookup_results": []}
+            for controller_response in concurrent.futures.as_completed(lookup_results):
+                results['lookup_results'].append(controller_response.result())
+            response = flask.jsonify(results)
+        else:
+            response = flask.jsonify(lookup_result['error_message'] if 'error_message' in lookup_result else "Lookup failed")
+            response.status_code = 500
     else:
         lookup_result = controllers[media].library_compare(key)
         if(lookup_result['status'] != 'FAIL'):
