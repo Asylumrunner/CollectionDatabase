@@ -163,7 +163,7 @@ def restore_tables():
 @app.route('/lib-compare/<media>', methods=['GET'])
 @app.route('/lib-compare/<media>/<key>', methods=['GET'])
 def lookup_in_library(media, key=None):
-    if media not in controllers:
+    if media != 'books':
         response = flask.jsonify('Invalid media type')
         response.status_code(400)
     elif not key:
