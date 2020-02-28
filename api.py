@@ -69,6 +69,23 @@ def put_entry(media, key):
             response.status_code = 500
     return response
 
+@app.route('/<media>/bulk', methods=['PUT'])
+def put_entries_bulk(media):
+    if media not in controllers:
+        response = flask.jsonify('Invalid media type')
+        response.status_code = 400
+    else:
+        request_dict = flask.request.get_json()
+        total_inserts = len(request_dict['keys'])
+        successful_inserts = 0
+        with concurrent.futures.ThreadPoolExecutor() as executor:
+            inserts = [executor.submit(controllers[media].put_key, key) for key in request_dict['keys']]
+        for insert in concurrent.futures.as_completed(inserts):
+            if insert:
+                successful_inserts += 1
+        response = flask.jsonify("{} out of {} keys successfully submitted".format(successful_inserts, total_inserts))
+    return response
+
 @app.route('/<media>/<key>', methods=['GET'])
 def get_entry(media, key):
     if media not in controllers:
