@@ -8,25 +8,30 @@ import json
 
 class BookController(GenreController):
     def __init__(self):
-        self.GR_API_KEY = secrets['Goodreads_API_Key']
-        self.lookup_req_template = "https://www.goodreads.com/search/index.xml?key={}&q={}&page={}"
-        self.individual_item_template = "https://www.goodreads.com/book/show/{}.xml?key={}"
+        self.lookup_req_template = "https://openlibrary.org/isbn/{}.json"
+        self.lookup_author_template = "https://openlibrary.org{}.json"
         self.guid_prefix = "BK-"
         self.library = SeattlePublicLibrary()
         super().__init__()
 
     def lookup_entry(self, title, picky=False):
         try:
-            req = requests.get(self.lookup_req_template.format(self.GR_API_KEY, title, 1))
-            root = ET.fromstring(req.content)
-            results = root.find('./search/results')
-            response = [{'name': book.find('./best_book/title').text, 'author': book.find('./best_book/author/name').text, 'guid': book.find('./best_book/id').text, 'original_publication_date': book.find('./original_publication_year').text} for book in results]
+            ISBN = title
+            book = requests.get(self.lookup_req_template.format(ISBN)).json()
 
-            if picky:
-                best_book = self.fuzzy_string_match(title, [book['name'] for book in response])
-                response = [book for book in response if book['name'] == best_book[0]]
+            authors = []
+            for author in book['authors']:
+                try:
+                    author_req = requests.get(self.lookup_author_template.format(author['key']))
+                    authors.append(author_req['personal_name'])
+                except Exception as e:
+                    print("Exception in author lookup for {} in BookController: {}".format(author, e))
+            if len(authors) != len(book['authors']):
+                raise ValueError("Length of authors retrieved {} does not match expected length {}".format(len(authors), len(book['authors'])))
+
+            response = {'name': book['title'], 'guid': book['identifiers']['goodreads'][0], 'authors': ", ".join(authors), 'release_year': book['publish_date'][len(book['publish_date'])-4:], 'isbn': ISBN, 'page_count': book['number_of_pages']}
         except Exception as e:
-            print("Exception in lookup for title {} in BookController: {}".format(title, e))
+            print("Exception in lookup for ISBN {} in BookController: {}".format(ISBN, e))
             response = [{
                 "Exception": str(e)
             }]
@@ -34,30 +39,18 @@ class BookController(GenreController):
 
     def put_key(self, key):
         try:
-            req = requests.get(self.individual_item_template.format(key, self.GR_API_KEY))
-            if(req.status_code == 200):
-                root = ET.fromstring(req.content)
-                result = root.find('./book')
-                work = result.find('./work')
-                name = result.find('./title').text
-                author = result.find('./authors/author/name').text
-                guid = result.find('./id').text
-                year_published = work.find('./original_publication_year').text
-                isbn = result.find('./isbn13').text
-                description = result.find('./description').text
-
+            req = self.lookup_entry(key)
+            if 'Exception' not in req:
                 response = self.dynamodb.put_item(
                     Item={
-                        'guid': self.guid_prefix + guid,
-                        'original_guid': guid,
-                        'name': name,
-                        'author': author,
-                        'release_year': year_published,
-                        'isbn': isbn,
-                        'summary': description
+                        'guid': self.guid_prefix + req['guid'],
+                        'original_guid': req['guid'],
+                        'name': req['name'],
+                        'authors': req['authors'],
+                        'release_year': req['release_year'],
+                        'isbn': key
                     }
                 )
-                print(response)
                 return True
             return False
         except Exception as e:
