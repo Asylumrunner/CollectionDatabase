@@ -4,6 +4,8 @@ from Controllers.BookController import BookController
 from Controllers.MovieController import MovieController
 from Controllers.BoardGameController import BoardGameController
 from Controllers.RPGController import RPGController
+from Controllers.AnimeController import AnimeController
+from Controllers.MusicController import MusicController
 import concurrent.futures
 import json
 
@@ -17,6 +19,8 @@ def init():
     controller_dict['video_game'] = VideoGameController()
     controller_dict['board_game'] = BoardGameController()
     controller_dict['rpg'] = RPGController()
+    controller_dict['anime'] = AnimeController()
+    controller_dict['music'] = MusicController()
     return controller_dict
 
 controllers = init()
