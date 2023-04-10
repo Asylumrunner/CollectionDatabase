@@ -1,6 +1,6 @@
 import requests
 import concurrent.futures
-from secrets import secrets
+from .secrets import secrets
 from .genre_controller import GenreController
 from boto3.dynamodb.conditions import Key
 import json

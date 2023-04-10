@@ -1,7 +1,7 @@
 from abc import ABC, abstractmethod
 from fuzzywuzzy import process
 import boto3
-from secrets import secrets
+from .secrets import secrets
 
 class GenreController(ABC):
 

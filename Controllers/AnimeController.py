@@ -1,5 +1,5 @@
 import requests
-from secrets import secrets
+from .secrets import secrets
 from .genre_controller import GenreController
 from boto3.dynamodb.conditions import Key
 import json
@@ -7,6 +7,7 @@ import json
 class AnimeController(GenreController):
 
     def __init__(self):
+        self.guid_prefix = "AN-"
         super().__init__()
 
     def lookup_entry(self, title, picky):
