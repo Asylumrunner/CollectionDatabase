@@ -7,7 +7,6 @@ from Controllers.RPGController import RPGController
 from Controllers.AnimeController import AnimeController
 from Controllers.MusicController import MusicController
 import concurrent.futures
-import json
 
 app = flask.Flask(__name__)
 app.config['DEBUG'] = True

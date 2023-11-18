@@ -21,13 +21,13 @@ class BookController(GenreController):
             for author in book['authors']:
                 try:
                     author_req = requests.get(self.lookup_author_template.format(author['key'])).json()
-                    authors.append(author_req['personal_name'])
+                    authors.append(author_req['name'])
                 except Exception as e:
                     print("Exception in author lookup for {} in BookController: {}".format(author, e))
             if len(authors) != len(book['authors']):
                 raise ValueError("Length of authors retrieved {} does not match expected length {}".format(len(authors), len(book['authors'])))
 
-            response = [{'name': book['title'], 'guid': book['identifiers']['goodreads'][0], 'authors': ", ".join(authors), 'release_year': book['publish_date'][len(book['publish_date'])-4:], 'isbn': ISBN, 'page_count': book['number_of_pages']}]
+            response = [{'name': book['title'], 'guid': book['key'][7:], 'authors': ", ".join(authors), 'release_year': book['publish_date'][len(book['publish_date'])-4:], 'isbn': book['isbn_13'][0], 'page_count': book['number_of_pages']}]
         except Exception as e:
             print("Exception in lookup for ISBN {} in BookController: {}".format(ISBN, e))
             response = [{

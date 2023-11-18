@@ -1,5 +1,5 @@
 import requests
-from .secrets import secrets
+from Controllers.secrets import secrets 
 
 class SeattlePublicLibrary():
     def __init__(self):
