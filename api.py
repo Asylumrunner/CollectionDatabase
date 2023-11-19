@@ -97,7 +97,7 @@ def get_entry(media, key):
     else:
         lookup_result = controllers[media].get_key(key)
         if(lookup_result['status'] != 'FAIL'):
-            response = flask.jsonify(lookup_result['item'])
+            response = flask.jsonify(lookup_result['item']) if 'item' in lookup_result else {}
         else:
             response = flask.jsonify(lookup_result['error_message'] if 'error_message' in lookup_result else "Lookup failed")
             response.status_code = 500
@@ -111,7 +111,7 @@ def delete_entry(media, key):
     else:
         lookup_result = controllers[media].delete_key(key)
         if(lookup_result['status'] != 'FAIL'):
-            response = flask.jsonify(lookup_result['item'])
+            response = flask.jsonify(lookup_result['item']) if 'item' in lookup_result else {}
         else:
             response = flask.jsonify(lookup_result['error_message'] if 'error_message' in lookup_result else "Lookup failed")
             response.status_code = 500

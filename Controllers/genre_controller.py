@@ -31,9 +31,9 @@ class GenreController(ABC):
                     'guid': self.guid_prefix + key
                 }
             )
-            if(db_response['Item']):
+            if('Item' in db_response):
                 response['item'] = db_response['Item']
-                response['status'] = 'OK'
+            response['status'] = 'OK'
         except Exception as e:
             print("Exception while retrieving key {} from database: {}".format(key, e))
             response['error_message'] = str(e)
@@ -48,9 +48,9 @@ class GenreController(ABC):
                 },
                 ReturnValues='ALL_OLD'
             )
-            if(db_response['Attributes']):
+            if('Attributes' in db_response):
                 response['item'] = db_response['Attributes']
-                response['status'] = 'OK'
+            response['status'] = 'OK'
         except Exception as e:
             print("Exception while deleting key {} from database: {}".format(key, e))
             response['error_message'] = str(e)
@@ -70,6 +70,7 @@ class GenreController(ABC):
                         FilterExpression=Key('guid').begins_with(self.guid_prefix),
                         ExclusiveStartKey=db_response['LastEvaluatedKey']
                     )
+                print(db_response)
                 if(db_response['Items']):
                     response['Items'] = db_response['Items']
         except Exception as e:
