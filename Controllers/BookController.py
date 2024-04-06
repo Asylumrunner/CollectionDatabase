@@ -6,30 +6,22 @@ import json
 
 class BookController(GenreController):
     def __init__(self):
-        self.lookup_req_template = "https://openlibrary.org/isbn/{}.json"
-        self.lookup_author_template = "https://openlibrary.org{}.json"
+        self.lookup_req_template = "https://openlibrary.org/search.json?q={}&page={}"
         self.guid_prefix = "BK-"
         self.library = SeattlePublicLibrary()
         super().__init__()
 
     def lookup_entry(self, title, picky=False):
         try:
-            ISBN = title
-            book = requests.get(self.lookup_req_template.format(ISBN)).json()
-
-            authors = []
-            for author in book['authors']:
-                try:
-                    author_req = requests.get(self.lookup_author_template.format(author['key'])).json()
-                    authors.append(author_req['name'])
-                except Exception as e:
-                    print("Exception in author lookup for {} in BookController: {}".format(author, e))
-            if len(authors) != len(book['authors']):
-                raise ValueError("Length of authors retrieved {} does not match expected length {}".format(len(authors), len(book['authors'])))
-
-            response = [{'name': book['title'], 'guid': book['key'][7:], 'authors': ", ".join(authors), 'release_year': book['publish_date'][len(book['publish_date'])-4:], 'isbn': book['isbn_13'][0], 'page_count': book['number_of_pages']}]
+            formatted_title = title.replace(' ', '+')
+            page_num = 1
+            openLibResponse = requests.get(self.lookup_req_template.format(formatted_title, page_num)).json()
+            response = []
+            
+            for book in openLibResponse["docs"]:
+                response.append([{'name': book['title'], 'guid': book['key'], 'authors': ", ".join(book["author_name"])}])            
         except Exception as e:
-            print("Exception in lookup for ISBN {} in BookController: {}".format(ISBN, e))
+            print("Exception in lookup for title {} in BookController: {}".format(title, e))
             response = [{
                 "Exception": str(e)
             }]
@@ -44,9 +36,7 @@ class BookController(GenreController):
                         'guid': self.guid_prefix + req['guid'],
                         'original_guid': req['guid'],
                         'name': req['name'],
-                        'authors': req['authors'],
-                        'release_year': req['release_year'],
-                        'isbn': key
+                        'authors': req['authors']
                     }
                 )
                 return True

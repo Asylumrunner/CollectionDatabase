@@ -3,6 +3,7 @@ from .secrets import secrets
 from .genre_controller import GenreController
 from boto3.dynamodb.conditions import Key
 import json
+import pprint
 
 class VideoGameController(GenreController):
     
@@ -16,8 +17,11 @@ class VideoGameController(GenreController):
 
     def lookup_entry(self, title, picky=False):
         try:
-            req = requests.get(self.lookup_req_template.format(self.GB_API_KEY, title), headers=self.header)
-            response = [{'name': game['name'], 'summary': game['deck'], 'release_year': game['expected_release_year'], 'guid': game['guid'], 'platforms': [platform['name'] for platform in game['platforms']]} for game in req.json()['results']]
+            req = requests.get(self.lookup_req_template.format(self.GB_API_KEY, title), headers=self.header).json()
+            response = []
+            for game in req['results']:
+                platforms = [platform['name'] for platform in game['platforms']] if game['platforms'] else ""
+                response.append({'name': game['name'], 'summary': game['deck'], 'release_year': game['expected_release_year'], 'guid': game['guid'], 'platforms': platforms})
             if picky:
                 best_game = self.fuzzy_string_match(title, [game['name'] for game in response])
                 response = [game for game in response if game['name'] == best_game[0]]

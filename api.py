@@ -13,8 +13,8 @@ app.config['DEBUG'] = True
 
 def init():
     controller_dict = {}
-    controller_dict['books'] = BookController()
-    controller_dict['movies'] = MovieController()
+    controller_dict['book'] = BookController()
+    controller_dict['movie'] = MovieController()
     controller_dict['video_game'] = VideoGameController()
     controller_dict['board_game'] = BoardGameController()
     controller_dict['rpg'] = RPGController()
