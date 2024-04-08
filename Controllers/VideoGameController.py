@@ -90,29 +90,6 @@ class VideoGameController(GenreController):
             print("Exception while deleting key {} from database via VideoGameController: {}".format(key, e))
             response['error_message'] = str(e)
         return response
-
-    def get_table(self):
-        response = {}
-        db_response = {}
-        try:
-            while not response or 'LastEvaluatedKey' in db_response:
-                if('LastEvaluatedKey' not in db_response): 
-                    db_response = self.dynamodb.scan(
-                        FilterExpression=Key('guid').begins_with(self.guid_prefix)
-                    )
-                else:
-                    db_response = self.dynamodb.scan(
-                        FilterExpression=Key('guid').begins_with(self.guid_prefix),
-                        ExclusiveStartKey=db_response['LastEvaluatedKey']
-                    )
-                if(db_response['Items']):
-                    response['Items'] = db_response['Items']
-            for item in response['Items']: 
-                    item['platform'] = list(item['platform'])
-        except Exception as e:
-            print("Exception while getting video game table from database: {}".format(e))
-            response['error_message'] = str(e)
-        return response
     
     def back_up_table(self):
         response = {'status': 'FAIL', 'controller': 'VideoGame'}

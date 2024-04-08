@@ -57,18 +57,25 @@ class GenreController(ABC):
         return response
 
     def get_table(self):
-        response = {}
-        db_response = self.dynamodb.scan(
+        response = {'Items': []}
+        db_response = {}
+        done_searching = False
+        try:
+            while not done_searching:
+                if('LastEvaluatedKey' not in db_response): 
+                    db_response = self.dynamodb.scan(
                         FilterExpression=Key('guid').begins_with(self.guid_prefix)
                     )
-        try:
-            while  'LastEvaluatedKey' in db_response:
+                else:
+                    db_response = self.dynamodb.scan(
+                        FilterExpression=Key('guid').begins_with(self.guid_prefix),
+                        ExclusiveStartKey=db_response['LastEvaluatedKey']
+                    )
                 if(db_response['Items']):
-                    response['Items'] = db_response['Items']
-                
-                    
-                print(db_response)
-                
+                    response['Items'].extend(db_response['Items'])
+                done_searching = not db_response['Items'] or not 'LastEvaluatedKey' in db_response
+            for item in response['Items']: 
+                    item['platform'] = list(item['platform'])
         except Exception as e:
             print("Exception while getting table from database: {}".format(e))
             response['error_message'] = str(e)
