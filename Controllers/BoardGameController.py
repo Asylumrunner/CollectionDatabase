@@ -3,7 +3,7 @@ from .genre_controller import GenreController
 import xml.etree.ElementTree as ET
 import concurrent.futures
 from boto3.dynamodb.conditions import Key
-import json
+import pprint
 
 class BoardGameController(GenreController):
     def __init__(self):
@@ -30,7 +30,9 @@ class BoardGameController(GenreController):
         response = []
         try:
             req = requests.get(self.lookup_req_template.format(title))
+            pprint.pp(req)
             root = ET.fromstring(req.content)
+            pprint.pp(root)
             
             with concurrent.futures.ThreadPoolExecutor() as executor:
                 lookups = executor.map(self.game_detail_lookup, root)
