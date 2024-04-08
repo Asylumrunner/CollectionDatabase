@@ -74,8 +74,6 @@ class GenreController(ABC):
                 if(db_response['Items']):
                     response['Items'].extend(db_response['Items'])
                 done_searching = not db_response['Items'] or not 'LastEvaluatedKey' in db_response
-            for item in response['Items']: 
-                    item['platform'] = list(item['platform'])
         except Exception as e:
             print("Exception while getting table from database: {}".format(e))
             response['error_message'] = str(e)

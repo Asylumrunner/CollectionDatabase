@@ -2,7 +2,7 @@ from .secrets import secrets
 from .genre_controller import GenreController
 from boto3.dynamodb.conditions import Key
 from jikanpy import Jikan
-import json
+
 
 class AnimeController(GenreController):
 
@@ -18,7 +18,7 @@ class AnimeController(GenreController):
             response.append({
                 'name': anime['title_english'],
                 'guid': anime['mal_id'],
-                'release_year': anime['year'],
+                'release_year': anime['aired']['prop']['from']['year'],
                 'summary': anime['synopsis'],
                 'episodes': anime['episodes']
             })
