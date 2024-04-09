@@ -30,9 +30,7 @@ class BoardGameController(GenreController):
         response = []
         try:
             req = requests.get(self.lookup_req_template.format(title))
-            pprint.pp(req)
             root = ET.fromstring(req.content)
-            pprint.pp(root)
             
             with concurrent.futures.ThreadPoolExecutor() as executor:
                 lookups = executor.map(self.game_detail_lookup, root)
