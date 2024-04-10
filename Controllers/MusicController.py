@@ -15,17 +15,28 @@ class MusicController(GenreController):
     def lookup_entry(self, title, picky=False):
 
         pp = pprint.PrettyPrinter()
-        results = self.discogs_client.search(title, type='release')
+        results = self.discogs_client.search(title, type='release', release_title=title)
         response = []
-        for release in results:
+        for release in results.page(0):
+            pprint.pp(release)
             response.append({
                 'name': release.data['title'],
                 'guid': release.data['id'],
                 'genre': release.data['genre']
             })
-            print("Added {} to response".format(release.data['title']))
         return response
 
     
     def put_key(self, key):
-        pass
+        req = self.discogs_client.release(key)
+        if (req):
+            response = self.dynamodb.put_item(
+                Item={
+                    'name': req.title,
+                    'guid': self.guid_prefix + str(req.id),
+                    'genre': req.genres
+                }
+            )
+            print(response)
+            return True
+        return False

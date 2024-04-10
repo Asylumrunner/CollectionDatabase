@@ -3,7 +3,7 @@ from .genre_controller import GenreController
 import xml.etree.ElementTree as ET
 import concurrent.futures
 from boto3.dynamodb.conditions import Key
-import json
+import pprint
 
 class RPGController(GenreController):
     def __init__(self):
@@ -17,6 +17,7 @@ class RPGController(GenreController):
         item_dict['guid'] = child.get('id', '00000')
         item_search_req = requests.get(self.individual_item_template.format(item_dict['guid']))
         search_root = ET.fromstring(item_search_req.content).find('./item')
+        pprint.pp(item_dict)
         names = [name.get('value', 'ERROR') for name in search_root.iterfind('name') if name.get('type', 'alternate') == 'primary']
         item_dict['name'] = names[0]
         item_dict['release_year'] = search_root.find('./yearpublished').get('value', '0')
@@ -27,7 +28,9 @@ class RPGController(GenreController):
         response = []
         try:
             req = requests.get(self.lookup_req_template.format(title))
+            pprint.pp(req)
             root = ET.fromstring(req.content)
+            pprint.pp(root)
 
             with concurrent.futures.ThreadPoolExecutor() as executor:
                 lookups = executor.map(self.game_detail_lookup, root)

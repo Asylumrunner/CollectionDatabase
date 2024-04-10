@@ -17,6 +17,7 @@ class BoardGameController(GenreController):
         item_dict['guid'] = child.get('id', '00000')
         item_search_req = requests.get(self.individual_item_template.format(item_dict['guid']))
         search_root = ET.fromstring(item_search_req.content).find('./item')
+        pprint.pp(item_dict)
         names = [name.get('value', 'ERROR') for name in search_root.iterfind('name') if name.get('type', 'alternate') == 'primary']
         item_dict['name'] = names[0]
         item_dict['minimum_players'] = search_root.find('./minplayers').get('value', "-1")
