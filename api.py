@@ -131,6 +131,20 @@ def get_table(media):
             response.status_code = 500
     return response
 
+@app.route('/everything', methods=['GET'])
+def get_every_table():
+    total_response = {}
+    for controller_type in controllers.keys():
+        lookup_result = controllers[controller_type].get_table()
+        if('Items' in lookup_result and 'error_message' not in lookup_result):
+            total_response[controller_type] = lookup_result['Items']
+        else:
+            response = flask.jsonify(lookup_result['error_message'] if 'error_message' in lookup_result else "Lookup failed")
+            response.status_code = 500
+            return response
+    response = flask.jsonify(total_response)
+    return response
+        
 def call_backup(controller):
     return controllers[controller].back_up_table()
 
