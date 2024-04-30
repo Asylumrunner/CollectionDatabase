@@ -2,7 +2,7 @@
 A database application for cataloging my collection of physical media, powered by Python, AWS Lambda, DynamoDB, Flask, Zappa, and a collection of APIs
 
 ## Table of Contents
-1. [Background](https://www.github.com/Asylumrunner/CollectionDatabase#overview)
+1. [Background](https://www.github.com/Asylumrunner/CollectionDatabase#background)
 2. [Tech Stack](https://www.github.com/Asylumrunner/CollectionDatabase#tech-stack)
 3. [APIs In Use](https://www.github.com/Asylumrunner/CollectionDatabase#apis-in-use)
 4. [Architecture](https://www.github.com/Asylumrunner/CollectionDatabase#architecture)
