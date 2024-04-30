@@ -1,4 +1,5 @@
 import flask
+from flask import request
 from Controllers.VideoGameController import VideoGameController
 from Controllers.BookController import BookController
 from Controllers.MovieController import MovieController
@@ -133,8 +134,9 @@ def get_table(media):
 
 @app.route('/everything', methods=['GET'])
 def get_every_table():
+    excluded_controllers = request.args.getlist('exclude')
     total_response = {}
-    for controller_type in controllers.keys():
+    for controller_type in [key for key in controllers.keys() if key not in excluded_controllers]:
         lookup_result = controllers[controller_type].get_table()
         if('Items' in lookup_result and 'error_message' not in lookup_result):
             total_response[controller_type] = lookup_result['Items']
