@@ -1,4 +1,5 @@
 import flask
+from flask_cors import CORS
 from flask import request
 from Controllers.VideoGameController import VideoGameController
 from Controllers.BookController import BookController
@@ -11,6 +12,7 @@ import concurrent.futures
 
 app = flask.Flask(__name__)
 app.config['DEBUG'] = True
+CORS(app)
 
 def init():
     controller_dict = {}
