@@ -8,13 +8,17 @@ from Controllers.BoardGameController import BoardGameController
 from Controllers.RPGController import RPGController
 from Controllers.AnimeController import AnimeController
 from Controllers.MusicController import MusicController
+from Workers.LookupWorker import LookupWorker
+import logging
 import concurrent.futures
 
 app = flask.Flask(__name__)
 app.config['DEBUG'] = True
 CORS(app)
+lookup_worker = LookupWorker()
 
 def init():
+    
     controller_dict = {}
     controller_dict['book'] = BookController()
     controller_dict['movie'] = MovieController()
@@ -27,18 +31,23 @@ def init():
 
 controllers = init()
 
-@app.route('/lookup/<media>/<title>', methods=['GET'])
-def lookup_data(media, title):
-    if media not in controllers:
-        response = flask.jsonify('Invalid media type')
-        response.status_code = 400
+@app.route('/lookup/<title>', methods=['GET'])
+def lookup_data(title):
+    media_type = request.args.get("media_type")
+    logging.info(f'media_type provided with lookup request {media_type}')
+    if media_type == None:
+        logging.error("No media_type provided with request")
+        response = flask.jsonify("No media_type provided")
+        response.status_code = 500
+        return response
+    
+    lookup_response = lookup_worker.lookup_item(title, media_type)
+
+    if('Exception' in lookup_response[0]):
+        response = flask.jsonify(lookup_response[0]['Exception'])
+        response.status_code = 500
     else:
-        lookup_response = controllers[media].lookup_entry(title)
-        if('Exception' in lookup_response[0]):
-            response = flask.jsonify(lookup_response[0]['Exception'])
-            response.status_code = 500
-        else:
-            response = flask.jsonify(lookup_response)
+        response = flask.jsonify(lookup_response)
     return response
 
 @app.route('/lookup/bulk/<media>', methods=['GET'])
