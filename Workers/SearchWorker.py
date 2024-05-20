@@ -7,7 +7,7 @@ import discogs_client
 import logging
 import requests
 
-class LookupWorker(BaseWorker):
+class SearchWorker(BaseWorker):
     def __init__(self):
         # Used for Anime Lookup
         self.jikan_client = Jikan()
@@ -39,7 +39,7 @@ class LookupWorker(BaseWorker):
 
         super().__init__()
 
-    def lookup_item(self, name, media_type):
+    def search_item(self, name, media_type):
         if media_type == "book":
             return self.lookup_book(name)
         elif media_type == "movie":

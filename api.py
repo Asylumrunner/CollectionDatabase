@@ -8,14 +8,18 @@ from Controllers.BoardGameController import BoardGameController
 from Controllers.RPGController import RPGController
 from Controllers.AnimeController import AnimeController
 from Controllers.MusicController import MusicController
-from Workers.LookupWorker import LookupWorker
+from Workers.SearchWorker import SearchWorker
+from Workers.DbGetWorker import DbGetWorker
+from Workers.DbDeleteWorker import DbDeleteWorker
 import logging
 import concurrent.futures
 
 app = flask.Flask(__name__)
 app.config['DEBUG'] = True
 CORS(app)
-lookup_worker = LookupWorker()
+search_worker = SearchWorker()
+db_get_worker = DbGetWorker()
+db_delete_worker = DbDeleteWorker()
 
 def init():
     
@@ -31,17 +35,17 @@ def init():
 
 controllers = init()
 
-@app.route('/lookup/<title>', methods=['GET'])
+@app.route('/search/<title>', methods=['GET'])
 def lookup_data(title):
     media_type = request.args.get("media_type")
-    logging.info(f'media_type provided with lookup request {media_type}')
+    logging.info(f'media_type provided with search request {media_type}')
     if media_type == None:
         logging.error("No media_type provided with request")
         response = flask.jsonify("No media_type provided")
         response.status_code = 500
         return response
     
-    lookup_response = lookup_worker.lookup_item(title, media_type)
+    lookup_response = search_worker.search_item(title, media_type)
 
     if('Exception' in lookup_response[0]):
         response = flask.jsonify(lookup_response[0]['Exception'])
@@ -101,32 +105,24 @@ def put_entries_bulk(media):
         response = flask.jsonify("{} out of {} keys successfully submitted".format(successful_inserts, total_inserts))
     return response
 
-@app.route('/<media>/<key>', methods=['GET'])
-def get_entry(media, key):
-    if media not in controllers:
-        response = flask.jsonify('Invalid media type')
-        response.status_code = 400
+@app.route('/item/<key>', methods=['GET'])
+def get_entry(key):
+    lookup_result = db_get_worker.get_item(key)
+    if(lookup_result['status'] != 'FAIL'):
+        response = flask.jsonify(lookup_result['item']) if 'item' in lookup_result else {}
     else:
-        lookup_result = controllers[media].get_key(key)
-        if(lookup_result['status'] != 'FAIL'):
-            response = flask.jsonify(lookup_result['item']) if 'item' in lookup_result else {}
-        else:
-            response = flask.jsonify(lookup_result['error_message'] if 'error_message' in lookup_result else "Lookup failed")
-            response.status_code = 500
+        response = flask.jsonify(lookup_result['error_message'] if 'error_message' in lookup_result else "Get failed")
+        response.status_code = 500
     return response
 
-@app.route('/<media>/<key>', methods=['DELETE'])
-def delete_entry(media, key):
-    if media not in controllers:
-        response = flask.jsonify('Invalid media type')
-        response.status_code = 400
+@app.route('/item/<key>', methods=['DELETE'])
+def delete_entry(key):
+    delete_result = db_delete_worker.delete_item(key)
+    if(delete_result['status'] != 'FAIL'):
+        response = flask.jsonify(delete_result['item']) if 'item' in delete_result else {}
     else:
-        lookup_result = controllers[media].delete_key(key)
-        if(lookup_result['status'] != 'FAIL'):
-            response = flask.jsonify(lookup_result['item']) if 'item' in lookup_result else {}
-        else:
-            response = flask.jsonify(lookup_result['error_message'] if 'error_message' in lookup_result else "Lookup failed")
-            response.status_code = 500
+        response = flask.jsonify(delete_result['error_message'] if 'error_message' in delete_result else "Delete failed")
+        response.status_code = 500
     return response
 
 @app.route('/<media>', methods=['GET'])
