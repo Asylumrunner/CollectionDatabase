@@ -22,7 +22,7 @@ class DbGetWorker(BaseWorker):
             response['error_message'] = str(e)
         return response
     
-    def get_table(self, key, included_types):
+    def get_table(self, included_types):
         response = {'Items': []}
         db_response = {}
         done_searching = False

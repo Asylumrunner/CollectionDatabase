@@ -75,7 +75,7 @@ def bulk_lookup_data(media):
     return response
 
 
-@app.route('/<media>/<key>', methods=['PUT'])
+@app.route('/<media>/<key>', methods=['POST'])
 def put_entry(media, key):
     if media not in controllers:
         response = flask.jsonify('Invalid media type')
@@ -88,7 +88,7 @@ def put_entry(media, key):
             response.status_code = 500
     return response
 
-@app.route('/<media>/bulk', methods=['PUT'])
+@app.route('/<media>/bulk', methods=['POST'])
 def put_entries_bulk(media):
     if media not in controllers:
         response = flask.jsonify('Invalid media type')
@@ -115,6 +115,10 @@ def get_entry(key):
         response.status_code = 500
     return response
 
+@app.route('/item/<key>', methods=['PUT'])
+def update_entry(key):
+    
+
 @app.route('/item/<key>', methods=['DELETE'])
 def delete_entry(key):
     delete_result = db_delete_worker.delete_item(key)
@@ -125,23 +129,9 @@ def delete_entry(key):
         response.status_code = 500
     return response
 
-@app.route('/<media>', methods=['GET'])
-def get_table(media):
-    if media not in controllers:
-        response = flask.jsonify('Invalid media type')
-        response.status_code = 400
-    else:
-        lookup_result = controllers[media].get_table()
-        if('Items' in lookup_result and 'error_message' not in lookup_result):
-            response = flask.jsonify(lookup_result['Items'])
-        else:
-            response = flask.jsonify(lookup_result['error_message'] if 'error_message' in lookup_result else "Lookup failed")
-            response.status_code = 500
-    return response
-
-@app.route('/everything', methods=['GET'])
+@app.route('/collection', methods=['GET'])
 def get_every_table():
-    excluded_controllers = request.args.getlist('exclude')
+    excluded_controllers = request.args.getlist('included_items')
     total_response = {}
     for controller_type in [key for key in controllers.keys() if key not in excluded_controllers]:
         lookup_result = controllers[controller_type].get_table()
