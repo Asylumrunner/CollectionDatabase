@@ -1,5 +1,5 @@
 from .BaseWorker import BaseWorker
-from boto3.dynamodb.conditions import Key
+from boto3.dynamodb.conditions import Key, Attr
 
 
 class DbGetWorker(BaseWorker):
@@ -30,11 +30,11 @@ class DbGetWorker(BaseWorker):
             while not done_searching:
                 if('LastEvaluatedKey' not in db_response): 
                     db_response = self.dynamodb.scan(
-                        FilterExpression=Key('guid').begins_with(self.guid_prefix)
+                        FilterExpression=Attr('media_type').is_in(included_types)
                     )
                 else:
                     db_response = self.dynamodb.scan(
-                        FilterExpression=Key('guid').begins_with(self.guid_prefix),
+                        FilterExpression=Attr('media_type').is_in(included_types)
                         ExclusiveStartKey=db_response['LastEvaluatedKey']
                     )
                 if(db_response['Items']):
