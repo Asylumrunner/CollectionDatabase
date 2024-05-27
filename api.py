@@ -1,39 +1,29 @@
 import flask
 from flask_cors import CORS
 from flask import request
-from Controllers.VideoGameController import VideoGameController
-from Controllers.BookController import BookController
-from Controllers.MovieController import MovieController
-from Controllers.BoardGameController import BoardGameController
-from Controllers.RPGController import RPGController
-from Controllers.AnimeController import AnimeController
-from Controllers.MusicController import MusicController
 from Workers.SearchWorker import SearchWorker
 from Workers.DbGetWorker import DbGetWorker
 from Workers.DbDeleteWorker import DbDeleteWorker
+from Workers.DbPutWorker import DbPutWorker
+from Workers.DbUpdateWorker import DbUpdateWorker
+from Utilities.ValidateRequestInput import validate_put_request
 import logging
 import concurrent.futures
 
 app = flask.Flask(__name__)
 app.config['DEBUG'] = True
 CORS(app)
-search_worker = SearchWorker()
-db_get_worker = DbGetWorker()
-db_delete_worker = DbDeleteWorker()
 
 def init():
-    
-    controller_dict = {}
-    controller_dict['book'] = BookController()
-    controller_dict['movie'] = MovieController()
-    controller_dict['video_game'] = VideoGameController()
-    controller_dict['board_game'] = BoardGameController()
-    controller_dict['rpg'] = RPGController()
-    controller_dict['anime'] = AnimeController()
-    controller_dict['music'] = MusicController()
-    return controller_dict
+    workers = {}
+    workers['SEARCH'] = SearchWorker()
+    workers['GET'] = DbGetWorker()
+    workers['DELETE'] = DbDeleteWorker()
+    workers['PUT'] = DbPutWorker()
+    workers['UPDATE'] = DbUpdateWorker()
+    return workers
 
-controllers = init()
+workers = init()
 
 @app.route('/search/<title>', methods=['GET'])
 def lookup_data(title):
@@ -45,7 +35,7 @@ def lookup_data(title):
         response.status_code = 500
         return response
     
-    lookup_response = search_worker.search_item(title, media_type)
+    lookup_response = workers['SEARCH'].search_item(title, media_type)
 
     if('Exception' in lookup_response[0]):
         response = flask.jsonify(lookup_response[0]['Exception'])
@@ -54,7 +44,7 @@ def lookup_data(title):
         response = flask.jsonify(lookup_response)
     return response
 
-@app.route('/lookup/bulk/<media>', methods=['GET'])
+""" @app.route('/lookup/bulk/<media>', methods=['GET'])
 def bulk_lookup_data(media):
     if media not in controllers:
         response = flask.jsonify('Invalid media type')
@@ -72,20 +62,23 @@ def bulk_lookup_data(media):
             for lookup in concurrent.futures.as_completed(lookups):
                 total_results.append(lookup.result())
             response = flask.jsonify(total_results)
-    return response
+    return response """
 
 
-@app.route('/<media>/<key>', methods=['POST'])
+@app.route('/put', methods=['POST'])
 def put_entry(media, key):
-    if media not in controllers:
-        response = flask.jsonify('Invalid media type')
+    req = request.json
+    validation_response = validate_put_request(req)
+    if not validation_response['valid']:
+        response = flask.jsonify({'status': 'FAILED', 'reason': validation_response['reason']})
         response.status_code = 400
-    else:
-        if(controllers[media].put_key(key)):
-            response = flask.jsonify('Key {} successfully inserted'.format(key))
-        else:
-            response = flask.jsonify('Insert failed')
-            response.status_code = 500
+        return response
+    
+    put_response = workers['PUT'].put_item(req)
+    if put_response['status'] = 'FAIL':
+        response = flask.jsonify({'status': 'FAILED', 'reason': put_response['exception']})
+        response.status_code = 400
+    response = {'status': 'SUCCESS'}
     return response
 
 @app.route('/<media>/bulk', methods=['POST'])
@@ -107,7 +100,7 @@ def put_entries_bulk(media):
 
 @app.route('/item/<key>', methods=['GET'])
 def get_entry(key):
-    lookup_result = db_get_worker.get_item(key)
+    lookup_result = workers['GET'].get_item(key)
     if(lookup_result['status'] != 'FAIL'):
         response = flask.jsonify(lookup_result['item']) if 'item' in lookup_result else {}
     else:
@@ -121,7 +114,7 @@ def update_entry(key):
 
 @app.route('/item/<key>', methods=['DELETE'])
 def delete_entry(key):
-    delete_result = db_delete_worker.delete_item(key)
+    delete_result = workers['DELETE'].delete_item(key)
     if(delete_result['status'] != 'FAIL'):
         response = flask.jsonify(delete_result['item']) if 'item' in delete_result else {}
     else:
@@ -131,69 +124,21 @@ def delete_entry(key):
 
 @app.route('/collection', methods=['GET'])
 def get_every_table():
-    excluded_controllers = request.args.getlist('included_items')
-    total_response = {}
-    for controller_type in [key for key in controllers.keys() if key not in excluded_controllers]:
-        lookup_result = controllers[controller_type].get_table()
-        if('Items' in lookup_result and 'error_message' not in lookup_result):
-            total_response[controller_type] = lookup_result['Items']
-        else:
-            response = flask.jsonify(lookup_result['error_message'] if 'error_message' in lookup_result else "Lookup failed")
-            response.status_code = 500
-            return response
-    response = flask.jsonify(total_response)
-    return response
+
         
 def call_backup(controller):
     return controllers[controller].back_up_table()
 
 @app.route('/backup', methods=['PUT'])
 def backup_tables():
-    response = {'failed_backups': 0, 'successful_backups': 0, 'error_messages': []}
-    try:
-        with concurrent.futures.ThreadPoolExecutor() as executor:
-            backup_results = [executor.submit(call_backup, controller) for controller in controllers]
-        for controller_response in concurrent.futures.as_completed(backup_results):
-            result_body = controller_response.result()
-            print("Received response for controller {}".format(result_body))
-            if(result_body['status'] == 'FAIL'):
-                response['failed_backups'] += 1
-                response['error_messages'].append({'Controller': result_body['controller'], 'error_message': result_body['error_message']})
-            else:
-                response['successful_backups'] += 1
-        json_response = flask.jsonify(response)
-    except Exception as e:
-        print("Exception while backing up tables: {}".format(e))
-        response['error_message'] = str(e)
-        json_response = flask.jsonify(response)
-        json_response.status_code = 500
-    return json_response
 
 def call_restore(controller):
     return controllers[controller].back_up_table()
 
 @app.route('/restore', methods=['PUT'])
 def restore_tables():
-    response = {'failed_restores': 0, 'successful_restores': 0, 'error_messages': []}
-    try:
-        with concurrent.futures.ThreadPoolExecutor() as executor:
-            restore_results = [executor.submit(call_restore, controller) for controller in controllers]
-        for controller_response in concurrent.futures.as_completed(restore_results):
-            result_body = controller_response.result()
-            print("Received response for controller {}".format(result_body))
-            if(result_body['status'] == 'FAIL'):
-                response['failed_restores'] += 1
-                response['error_messages'].append({'Controller': result_body['controller'], 'error_message': result_body['error_message']})
-            else:
-                response['successful_restores'] += 1
-        json_response = flask.jsonify(response)
-    except Exception as e:
-        print("Exception while backing up tables: {}".format(e))
-        response['error_message'] = str(e)
-        json_response = flask.jsonify(response)
-        json_response.status_code = 500
 
-@app.route('/lib-compare/<media>', methods=['GET'])
+""" @app.route('/lib-compare/<media>', methods=['GET'])
 @app.route('/lib-compare/<media>/<key>', methods=['GET'])
 def lookup_in_library(media, key=None):
     if media != 'books':
@@ -221,7 +166,7 @@ def lookup_in_library(media, key=None):
         else:
             response = flask.jsonify(lookup_result['error_message'] if 'error_message' in lookup_result else 'Lookup failed')
             response.status_code = 500
-    return response
+    return response """
 """
 @app.route('/<media>')
 def clear_table(media) """
