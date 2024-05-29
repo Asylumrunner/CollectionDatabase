@@ -18,13 +18,14 @@ def validate_put_request(request):
     if 'media_type' not in request:
         return fail_because('Request must include \'media_type\' field')
     
-    if request['media_type'] not in valid_media_types:
-        return fail_because(f'\'media_type\' {request['media_type']} invalid, please use one of {valid_media_types}')
+    type = request['media_type']
+    if type not in valid_media_types:
+        return fail_because(f'\'media_type\' {type} invalid, please use one of {valid_media_types}')
     
-    invalid_fields = [field for field in request if field not in valid_field_names[request['media_type']]]
+    invalid_fields = [field for field in request if field not in valid_field_names[type]]
 
     if invalid_fields:
-        return fail_because(f'For \'media_type\' {request['media_type']}, fields {invalid_fields} are unknown')
+        return fail_because(f'For \'media_type\' {type}, fields {invalid_fields} are unknown')
     
     return {
         'valid': True

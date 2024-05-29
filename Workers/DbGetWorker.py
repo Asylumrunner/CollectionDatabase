@@ -34,7 +34,7 @@ class DbGetWorker(BaseWorker):
                     )
                 else:
                     db_response = self.dynamodb.scan(
-                        FilterExpression=Attr('media_type').is_in(included_types)
+                        FilterExpression=Attr('media_type').is_in(included_types),
                         ExclusiveStartKey=db_response['LastEvaluatedKey']
                     )
                 if(db_response['Items']):

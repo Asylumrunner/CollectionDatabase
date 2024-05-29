@@ -25,6 +25,12 @@ def init():
 
 workers = init()
 
+@app.route('/', methods=['GET'])
+def health_check():
+    response = flask.jsonify("We're Good!")
+    response.status_code = 200
+    return response
+
 @app.route('/search/<title>', methods=['GET'])
 def lookup_data(title):
     media_type = request.args.get("media_type")
@@ -75,7 +81,7 @@ def put_entry(media, key):
         return response
     
     put_response = workers['PUT'].put_item(req)
-    if put_response['status'] = 'FAIL':
+    if put_response['status'] == 'FAIL':
         response = flask.jsonify({'status': 'FAILED', 'reason': put_response['exception']})
         response.status_code = 400
     response = {'status': 'SUCCESS'}
@@ -108,8 +114,8 @@ def get_entry(key):
         response.status_code = 500
     return response
 
-@app.route('/item/<key>', methods=['PUT'])
-def update_entry(key):
+# @app.route('/item/<key>', methods=['PUT'])
+# def update_entry(key):
     
 
 @app.route('/item/<key>', methods=['DELETE'])
@@ -122,21 +128,21 @@ def delete_entry(key):
         response.status_code = 500
     return response
 
-@app.route('/collection', methods=['GET'])
-def get_every_table():
+# @app.route('/collection', methods=['GET'])
+# def get_every_table():
 
         
-def call_backup(controller):
-    return controllers[controller].back_up_table()
+# def call_backup(controller):
+#     return controllers[controller].back_up_table()
 
-@app.route('/backup', methods=['PUT'])
-def backup_tables():
+# @app.route('/backup', methods=['PUT'])
+# def backup_tables():
 
-def call_restore(controller):
-    return controllers[controller].back_up_table()
+# def call_restore(controller):
+#     return controllers[controller].back_up_table()
 
-@app.route('/restore', methods=['PUT'])
-def restore_tables():
+# @app.route('/restore', methods=['PUT'])
+# def restore_tables():
 
 """ @app.route('/lib-compare/<media>', methods=['GET'])
 @app.route('/lib-compare/<media>/<key>', methods=['GET'])
