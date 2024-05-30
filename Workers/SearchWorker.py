@@ -3,11 +3,9 @@ from .BaseWorker import BaseWorker
 from jikanpy import Jikan
 import xml.etree.ElementTree as ET
 import concurrent.futures
-import discogs_client
 import logging
 import requests
 from benedict import benedict
-import pprint
 
 class SearchWorker(BaseWorker):
     def __init__(self):
@@ -28,7 +26,8 @@ class SearchWorker(BaseWorker):
         self.movie_credits_lookup_template = "https://api.themoviedb.org/3/movie/{}/credits?api_key={}"
 
         # Used for Music Lookup
-        self.discogs_client = discogs_client.Client('CollectionDatabase/0.1', user_token=secrets['Discogs_Developer_Token'])
+        self.AUDIODB_API_KEY = secrets['AudioDB_Key']
+        self.music_lookup_req_template = "https://www.theaudiodb.com/api/v1/json/{}/searchalbum.php?s={}"
 
         # Used for RPG Lookup
         self.rpg_lookup_req_template = "https://www.rpggeek.com/xmlapi2/search?query={}&type=rpgitem"
@@ -204,16 +203,16 @@ class SearchWorker(BaseWorker):
             })
         return response
     
-    def lookup_music(self, title):
-        results = self.discogs_client.search(title, type='release', release_title=title)
+    def lookup_music(self, artist):
+        results = requests.get(self.music_lookup_req_template.format(self.AUDIODB_API_KEY, artist))
         response = []
-        for release in results.page(0):
-            release_details = self.discogs_client.release(release.data['id'])
+        for release in results['album']:
             response.append({
-                'name': release.data['title'],
-                'guid': release.data['id'],
-                'img_link': release_details.images[0]['resource_url'],
-                'duration': len(release_details.tracklist),
-                'created_by': [artist.name for artist in release_details.artists]
+                'name': release['strAlbumStripped'],
+                'guid': release['idAlbum'],
+                'img_link': release['strAlbumThumb'],
+                'release_year': release['intYearReleased'],
+                'created_by': release['strArtistStripped'],
+                'summary': release['strDescriptionEn']
             })
         return response
