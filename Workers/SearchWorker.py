@@ -6,6 +6,7 @@ import concurrent.futures
 import discogs_client
 import logging
 import requests
+import pprint
 
 class SearchWorker(BaseWorker):
     def __init__(self):
@@ -23,6 +24,7 @@ class SearchWorker(BaseWorker):
         self.MDB_API_KEY = secrets['MovieDB_Key']
         self.movie_lookup_req_template = "https://api.themoviedb.org/3/search/movie?api_key={}&query={}&include_adult=true"
         self.movie_lookup_template = "https://api.themoviedb.org/3/movie/{}?api_key={}"
+        self.movie_credits_lookup_template = "https://api.themoviedb.org/3/movie/{}/credits?api_key={}"
 
         # Used for Music Lookup
         self.discogs_client = discogs_client.Client('CollectionDatabase/0.1', user_token=secrets['Discogs_Developer_Token'])
@@ -68,12 +70,19 @@ class SearchWorker(BaseWorker):
             response = []
             
             for book in openLibResponse["docs"]:
-                response.append([{'name': book['title'], 'guid': book['key'], 'authors': ", ".join(book["author_name"])}])            
+                response.append([{'name': book['title'], 'release_year': book['first_publish_year'], 'img_link': "https://covers.openlibrary.org/b/isbn/{}-L.jpg".format(book['isbn'][0]), 'guid': book['key'], 'created_by': ", ".join(book["author_name"])}])            
         except Exception as e:
             print("Exception in lookup for title {} in BookController: {}".format(title, e))
             response = [{
                 "Exception": str(e)
             }]
+        return response
+    
+    def movie_lookup(self, guid):
+        movie = requests.get(self.movie_lookup_template.format(guid, self.MDB_API_KEY)).json()
+        credits = requests.get(self.movie_credits_lookup_template.format(guid, self.MDB_API_KEY)).json()
+        directors = ", ".join([crewmember['name'] for crewmember in credits['crew'] if crewmember['job'] == 'Director'])
+        response = {'name': movie['title'], 'guid': movie['id'], 'release_year': movie['release_date'][:4], 'created_by': directors, 'img_link': "https://image.tmdb.org/t/p/w600_and_h900_bestv2{}".format(movie['poster_path']), 'language': movie['original_language'], 'summary': movie['overview'], 'duration': movie['runtime']}
         return response
     
     def lookup_movie(self, title):
