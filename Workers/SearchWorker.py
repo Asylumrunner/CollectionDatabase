@@ -6,6 +6,7 @@ import concurrent.futures
 import discogs_client
 import logging
 import requests
+from benedict import benedict
 import pprint
 
 class SearchWorker(BaseWorker):
@@ -108,8 +109,10 @@ class SearchWorker(BaseWorker):
             req = requests.get(self.vg_lookup_req_template.format(self.GB_API_KEY, title), headers=self.header).json()
             response = []
             for game in req['results']:
+                game_details = benedict(requests.get(self.game_key_req_template.format(game['guid'], self.GB_API_KEY), headers=self.header).json())
+                developer = game_details['results.developers[0].name'] if 'results.developers[0].name' in game_details else ""
                 platforms = [platform['name'] for platform in game['platforms']] if game['platforms'] else ""
-                response.append({'name': game['name'], 'summary': game['deck'], 'release_year': game['expected_release_year'], 'guid': game['guid'], 'platforms': platforms})
+                response.append({'name': game['name'], 'img_link': game['image']['medium_url'], 'created_by': developer, 'summary': game['deck'], 'release_year': game['expected_release_year'], 'guid': game['guid'], 'platforms': platforms})
         except Exception as e:
             print("Exception in lookup for title {} in VideoGameController: {}".format(title, e))
             response = [{
@@ -143,6 +146,9 @@ class SearchWorker(BaseWorker):
         search_root = ET.fromstring(item_search_req.content).find('./item')
         names = [name.get('value', 'ERROR') for name in search_root.iterfind('name') if name.get('type', 'alternate') == 'primary']
         item_dict['name'] = names[0]
+        item_dict['img_link'] = search_root.find('./image').text if search_root.find('./image') is not None else ""
+        designers = [designer.get('value', 'unknown') for designer in search_root.iterfind('link') if designer.get('type', 'none') == 'boardgamedesigner']
+        item_dict['created_by'] = designers
         item_dict['minimum_players'] = search_root.find('./minplayers').get('value', "-1")
         item_dict['maximum_players'] = search_root.find('./maxplayers').get('value', "a billion")
         item_dict['year_published'] = search_root.find('./yearpublished').get('value', '0')
@@ -176,6 +182,9 @@ class SearchWorker(BaseWorker):
         search_root = ET.fromstring(item_search_req.content).find('./item')
         names = [name.get('value', 'ERROR') for name in search_root.iterfind('name') if name.get('type', 'alternate') == 'primary']
         item_dict['name'] = names[0]
+        item_dict['img_link'] = search_root.find('./image').text if search_root.find('./image') is not None else ""
+        designers = [designer.get('value', 'unknown') for designer in search_root.iterfind('link') if designer.get('type', 'none') == 'rpgdesigner']
+        item_dict['created_by'] = designers
         item_dict['release_year'] = search_root.find('./yearpublished').get('value', '0')
         item_dict['summary'] = search_root.find('./description').text
         return item_dict
@@ -189,7 +198,9 @@ class SearchWorker(BaseWorker):
                 'guid': anime['mal_id'],
                 'release_year': anime['aired']['prop']['from']['year'],
                 'summary': anime['synopsis'],
-                'episodes': anime['episodes']
+                'img_link': anime['images']['jpg']['image_url'],
+                'created_by': [studio['name'] for studio in anime['studios']],
+                'duration': anime['episodes']
             })
         return response
     
@@ -197,9 +208,12 @@ class SearchWorker(BaseWorker):
         results = self.discogs_client.search(title, type='release', release_title=title)
         response = []
         for release in results.page(0):
+            release_details = self.discogs_client.release(release.data['id'])
             response.append({
                 'name': release.data['title'],
                 'guid': release.data['id'],
-                'genre': release.data['genre']
+                'img_link': release_details.images[0]['resource_url'],
+                'duration': len(release_details.tracklist),
+                'created_by': [artist.name for artist in release_details.artists]
             })
         return response
