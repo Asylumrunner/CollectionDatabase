@@ -6,7 +6,7 @@ from Workers.DbGetWorker import DbGetWorker
 from Workers.DbDeleteWorker import DbDeleteWorker
 from Workers.DbPutWorker import DbPutWorker
 from Workers.DbUpdateWorker import DbUpdateWorker
-from Utilities.ValidateRequestInput import validate_put_request
+from Utilities.ValidateRequestInput import validate_put_request, validate_update_request
 import logging
 
 app = flask.Flask(__name__)
@@ -95,10 +95,22 @@ def get_entry(key):
         return create_response(False, 500, [], lookup_response['exception'])
     return create_response(True, 200, lookup_response['item'])
 
-# @app.route('/item/<key>', methods=['PUT'])
-# def update_entry(key):
+@app.route('/items/<key>', methods=['PUT'])
+def update_entry(key):
+    req = request.json
+    if not req:
+        return create_response(False, 400, [], "Must include at least one field to update")
+    validation_response = validate_update_request(req)
+    if not validation_response['valid']:
+        return create_response(False, 400, [], validation_response['reason'])
+    
+    update_response = workers['UPDATE'].update_entry(key, req)
+    if not update_response['passed']:
+        return create_response(False, 500, [], update_response['exception'])
+    return create_response(True, 200, update_response['database_response'])
 
-@app.route('/item/<key>', methods=['DELETE'])
+
+@app.route('/items/<key>', methods=['DELETE'])
 def delete_entry(key):
     delete_response = workers['DELETE'].delete_item(key)
     if not delete_response['passed']:
