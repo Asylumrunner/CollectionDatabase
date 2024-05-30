@@ -1,13 +1,13 @@
 from .BaseWorker import BaseWorker
 from boto3.dynamodb.conditions import Key, Attr
-
+import logging
 
 class DbGetWorker(BaseWorker):
     def __init__(self):
         super().__init__()
     
     def get_item(self, key):
-        response = {'status': 'FAIL'}
+        response = {'passed': False}
         try:
             db_response = self.dynamodb.get_item(
                 Key={
@@ -16,14 +16,14 @@ class DbGetWorker(BaseWorker):
             )
             if('Item' in db_response):
                 response['item'] = db_response['Item']
-            response['status'] = 'OK'
+            response['passed'] = True
         except Exception as e:
-            print("Exception while retrieving key {} from database: {}".format(key, e))
-            response['error_message'] = str(e)
+            logging.error("Exception while retrieving key {} from database: {}".format(key, e))
+            response['exception'] = str(e)
         return response
     
     def get_table(self, included_types):
-        response = {'Items': []}
+        response = {'items': [], 'passed': False}
         db_response = {}
         done_searching = False
         try:
@@ -38,9 +38,10 @@ class DbGetWorker(BaseWorker):
                         ExclusiveStartKey=db_response['LastEvaluatedKey']
                     )
                 if(db_response['Items']):
-                    response['Items'].extend(db_response['Items'])
+                    response['items'].extend(db_response['Items'])
                 done_searching = not db_response['Items'] or not 'LastEvaluatedKey' in db_response
+            response['passed'] = True
         except Exception as e:
-            print("Exception while getting table from database: {}".format(e))
-            response['error_message'] = str(e)
+            logging.error("Exception while getting table from database: {}".format(e))
+            response['exception'] = str(e)
         return response      

@@ -58,24 +58,25 @@ class SearchWorker(BaseWorker):
             return self.lookup_music(name)
         else:
             logging.error("media_type passed to LookupWorker not recognized")
-            return [{
-                "Exception": f'media_type {media_type} not recognized. Please use one of [book, movie, video_game, board_game, rpg, anime, music]'
-            }]
+            return {
+                "passed": False,
+                "exception": f'media_type {media_type} not recognized. Please use one of [book, movie, video_game, board_game, rpg, anime, music]'
+            }
         
     def lookup_book(self, title):
         try:
             formatted_title = title.replace(' ', '+')
             page_num = 1
             openLibResponse = requests.get(self.book_lookup_req_template.format(formatted_title, page_num)).json()
-            response = []
+            response = {"items": [], "passed": False}
             
             for book in openLibResponse["docs"]:
-                response.append([{'name': book['title'], 'release_year': book['first_publish_year'], 'img_link': "https://covers.openlibrary.org/b/isbn/{}-L.jpg".format(book['isbn'][0]), 'guid': book['key'], 'created_by': ", ".join(book["author_name"])}])            
+                response["items"].append([{'name': book['title'], 'release_year': book['first_publish_year'], 'img_link': "https://covers.openlibrary.org/b/isbn/{}-L.jpg".format(book['isbn'][0]), 'guid': book['key'], 'created_by': book["author_name"]}])
+            
+            response["passed"] = True
         except Exception as e:
-            print("Exception in lookup for title {} in BookController: {}".format(title, e))
-            response = [{
-                "Exception": str(e)
-            }]
+            logging.error("Exception in lookup for title {} in BookController: {}".format(title, e))
+            response["exception"] = str(e)
         return response
     
     def movie_lookup(self, guid):
@@ -86,7 +87,7 @@ class SearchWorker(BaseWorker):
         return response
     
     def lookup_movie(self, title):
-        response = []
+        response = {"items": [], "passed": False}
         try:
             req = requests.get(self.movie_lookup_req_template.format(self.MDB_API_KEY, title))
 
@@ -94,33 +95,31 @@ class SearchWorker(BaseWorker):
                 lookups = executor.map(self.movie_lookup, [result['id'] for result in req.json()['results']])
             
             for lookup in lookups:
-                response.append(lookup)
+                response['items'].append(lookup)
             
+            response["passed"] = True
         except Exception as e:
-            print("Exception in lookup for title {} in MovieController: {}".format(title, e))
-            response = [{
-                "Exception": str(e)
-            }]
+            logging.error("Exception in lookup for title {} in MovieController: {}".format(title, e))
+            response["exception"] = str(e)
         return response
 
     def lookup_video_game(self, title):
+        response = {"items": [], "passed": False}
         try:
             req = requests.get(self.vg_lookup_req_template.format(self.GB_API_KEY, title), headers=self.header).json()
-            response = []
             for game in req['results']:
                 game_details = benedict(requests.get(self.game_key_req_template.format(game['guid'], self.GB_API_KEY), headers=self.header).json())
                 developer = game_details['results.developers[0].name'] if 'results.developers[0].name' in game_details else ""
                 platforms = [platform['name'] for platform in game['platforms']] if game['platforms'] else ""
-                response.append({'name': game['name'], 'img_link': game['image']['medium_url'], 'created_by': developer, 'summary': game['deck'], 'release_year': game['expected_release_year'], 'guid': game['guid'], 'platforms': platforms})
+                response['items'].append({'name': game['name'], 'img_link': game['image']['medium_url'], 'created_by': developer, 'summary': game['deck'], 'release_year': game['expected_release_year'], 'guid': game['guid'], 'platforms': platforms})
+            response["passed"] = True
         except Exception as e:
-            print("Exception in lookup for title {} in VideoGameController: {}".format(title, e))
-            response = [{
-                "Exception": str(e)
-            }]
+            logging.error("Exception in lookup for title {} in VideoGameController: {}".format(title, e))
+            response["exception"] = str(e)
         return response
     
     def lookup_board_game(self, title):
-        response = []
+        response = {"items": [], "passed": False}
         try:
             req = requests.get(self.bg_lookup_req_template.format(title))
             root = ET.fromstring(req.content)
@@ -129,13 +128,12 @@ class SearchWorker(BaseWorker):
                 lookups = executor.map(self.board_game_detail_lookup, root)
             
             for lookup in lookups:
-                response.append(lookup)
+                response['items'].append(lookup)
             
+            response["passed"] = True
         except Exception as e:
-            print("Exception in lookup for title {} in BoardGameController: {}".format(title, e))
-            response = [{
-                "Exception": str(e)
-            }]
+            logging.error("Exception in lookup for title {} in BoardGameController: {}".format(title, e))
+            response["exception"] = str(e)
         return response
 
     def board_game_detail_lookup(self, child):
@@ -156,7 +154,7 @@ class SearchWorker(BaseWorker):
         return item_dict
     
     def lookup_rpg(self, title):
-        response = []
+        response = {"items": [], "passed": False}
         try:
             req = requests.get(self.rpg_lookup_req_template.format(title))
             root = ET.fromstring(req.content)
@@ -165,13 +163,12 @@ class SearchWorker(BaseWorker):
                 lookups = executor.map(self.rpg_detail_lookup, root)
             
             for lookup in lookups:
-                response.append(lookup)
-
+                response["items"].append(lookup)
+            
+            response['passed'] = True
         except Exception as e:
-            print("Exception in lookup for title {} in RPGController: {}".format(title, e))
-            response = [{
-                'Exception': str(e)
-            }]
+            logging.error("Exception in lookup for title {} in RPGController: {}".format(title, e))
+            response["exception"] = str(e)
         return response
 
     def rpg_detail_lookup(self, child):
@@ -189,30 +186,40 @@ class SearchWorker(BaseWorker):
         return item_dict
     
     def lookup_anime(self, title):
-        jikan_response = self.jikan_client.search("anime", title)
-        response = []
-        for anime in jikan_response['data']:
-            response.append({
-                'name': anime['title_english'],
-                'guid': anime['mal_id'],
-                'release_year': anime['aired']['prop']['from']['year'],
-                'summary': anime['synopsis'],
-                'img_link': anime['images']['jpg']['image_url'],
-                'created_by': [studio['name'] for studio in anime['studios']],
-                'duration': anime['episodes']
-            })
+        response = {"items": [], "passed": False}
+        try:
+            jikan_response = self.jikan_client.search("anime", title)
+            for anime in jikan_response['data']:
+                response['items'].append({
+                    'name': anime['title_english'],
+                    'guid': anime['mal_id'],
+                    'release_year': anime['aired']['prop']['from']['year'],
+                    'summary': anime['synopsis'],
+                    'img_link': anime['images']['jpg']['image_url'],
+                    'created_by': [studio['name'] for studio in anime['studios']],
+                    'duration': anime['episodes']
+                })
+            response['passed'] = True
+        except Exception as e:
+            logging.error("Exception in lookup for title {} in AnimeController: {}".format(title, e))
+            response["exception"] = str(e)
         return response
     
     def lookup_music(self, artist):
-        results = requests.get(self.music_lookup_req_template.format(self.AUDIODB_API_KEY, artist))
-        response = []
-        for release in results['album']:
-            response.append({
-                'name': release['strAlbumStripped'],
-                'guid': release['idAlbum'],
-                'img_link': release['strAlbumThumb'],
-                'release_year': release['intYearReleased'],
-                'created_by': release['strArtistStripped'],
-                'summary': release['strDescriptionEn']
-            })
+        response = {"items": [], "passed": False}
+        try:
+            results = requests.get(self.music_lookup_req_template.format(self.AUDIODB_API_KEY, artist))
+            for release in results['album']:
+                response.append({
+                    'name': release['strAlbumStripped'],
+                    'guid': release['idAlbum'],
+                    'img_link': release['strAlbumThumb'],
+                    'release_year': release['intYearReleased'],
+                    'created_by': release['strArtistStripped'],
+                    'summary': release['strDescriptionEn']
+                })
+            response['passed'] = True
+        except Exception as e:
+            logging.error("Exception in lookup for title {} in MusicController: {}".format(artist, e))
+            response["exception"] = str(e)
         return response

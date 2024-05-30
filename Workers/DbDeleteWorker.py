@@ -1,4 +1,5 @@
 from .BaseWorker import BaseWorker
+import logging
 
 class DbDeleteWorker(BaseWorker):
 
@@ -6,7 +7,7 @@ class DbDeleteWorker(BaseWorker):
         super().__init__()
 
     def delete_item(self, key):
-        response = {'status': 'FAIL'}
+        response = {'passed': False}
         try:
             db_response = self.dynamodb.delete_item(
                 Key={
@@ -16,8 +17,8 @@ class DbDeleteWorker(BaseWorker):
             )
             if('Attributes' in db_response):
                 response['item'] = db_response['Attributes']
-            response['status'] = 'OK'
+            response['passed'] = True
         except Exception as e:
-            print("Exception while deleting key {} from database: {}".format(key, e))
-            response['error_message'] = str(e)
+            logging.error("Exception while deleting key {} from database: {}".format(key, e))
+            response['exception'] = str(e)
         return response

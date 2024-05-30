@@ -8,7 +8,6 @@ from Workers.DbPutWorker import DbPutWorker
 from Workers.DbUpdateWorker import DbUpdateWorker
 from Utilities.ValidateRequestInput import validate_put_request
 import logging
-import concurrent.futures
 
 app = flask.Flask(__name__)
 app.config['DEBUG'] = True
@@ -37,18 +36,14 @@ def lookup_data(title):
     logging.info(f'media_type provided with search request {media_type}')
     if media_type == None:
         logging.error("No media_type provided with request")
-        response = flask.jsonify("No media_type provided")
-        response.status_code = 500
-        return response
+        return create_response(False, 400, [], "No media_type provided with request")
     
     lookup_response = workers['SEARCH'].search_item(title, media_type)
 
-    if('Exception' in lookup_response[0]):
-        response = flask.jsonify(lookup_response[0]['Exception'])
-        response.status_code = 500
+    if not lookup_response['passed']:
+        return create_response(False, 500, [], lookup_response['exception'])
     else:
-        response = flask.jsonify(lookup_response)
-    return response
+        return create_response(True, 200, lookup_response['items'])
 
 """ @app.route('/lookup/bulk/<media>', methods=['GET'])
 def bulk_lookup_data(media):
@@ -71,61 +66,53 @@ def bulk_lookup_data(media):
     return response """
 
 
-@app.route('/put', methods=['POST'])
-def put_entry(media, key):
+@app.route('/items', methods=['PUT'])
+def put_entry():
     req = request.json
     validation_response = validate_put_request(req)
     if not validation_response['valid']:
-        response = flask.jsonify({'status': 'FAILED', 'reason': validation_response['reason']})
-        response.status_code = 400
-        return response
+        return create_response(False, 400, [], validation_response['reason'])
     
     put_response = workers['PUT'].put_item(req)
-    if put_response['status'] == 'FAIL':
-        response = flask.jsonify({'status': 'FAILED', 'reason': put_response['exception']})
-        response.status_code = 400
-    response = {'status': 'SUCCESS'}
-    return response
+    if not put_response['passed']:
+        return create_response(False, 500, [], put_response['exception'])
+    return create_response(True, 200, put_response['database_response'])
 
-@app.route('/<media>/bulk', methods=['POST'])
-def put_entries_bulk(media):
-    if media not in controllers:
-        response = flask.jsonify('Invalid media type')
-        response.status_code = 400
-    else:
-        request_dict = flask.request.get_json()
-        total_inserts = len(request_dict['keys'])
-        successful_inserts = 0
-        with concurrent.futures.ThreadPoolExecutor() as executor:
-            inserts = [executor.submit(controllers[media].put_key, key) for key in request_dict['keys']]
-        for insert in concurrent.futures.as_completed(inserts):
-            if insert:
-                successful_inserts += 1
-        response = flask.jsonify("{} out of {} keys successfully submitted".format(successful_inserts, total_inserts))
-    return response
-
-@app.route('/item/<key>', methods=['GET'])
+@app.route('/items', methods=['GET'])
+def get_table():
+    incl_media_types = request.args.getlist("media_type")
+    if not incl_media_types:
+        return create_response(False, 400, [], "Must include at least one \'media_type\' parameter")
+    lookup_response = workers['GET'].get_table(incl_media_types)
+    if not lookup_response['passed']:
+        return create_response(False, 500, [], lookup_response['exception'])
+    return create_response(True, 200, lookup_response['items'])
+    
+@app.route('/items/<key>', methods=['GET'])
 def get_entry(key):
-    lookup_result = workers['GET'].get_item(key)
-    if(lookup_result['status'] != 'FAIL'):
-        response = flask.jsonify(lookup_result['item']) if 'item' in lookup_result else {}
-    else:
-        response = flask.jsonify(lookup_result['error_message'] if 'error_message' in lookup_result else "Get failed")
-        response.status_code = 500
-    return response
+    lookup_response = workers['GET'].get_item(key)
+    if not lookup_response['passed']:
+        return create_response(False, 500, [], lookup_response['exception'])
+    return create_response(True, 200, lookup_response['item'])
 
 # @app.route('/item/<key>', methods=['PUT'])
 # def update_entry(key):
-    
 
 @app.route('/item/<key>', methods=['DELETE'])
 def delete_entry(key):
-    delete_result = workers['DELETE'].delete_item(key)
-    if(delete_result['status'] != 'FAIL'):
-        response = flask.jsonify(delete_result['item']) if 'item' in delete_result else {}
-    else:
-        response = flask.jsonify(delete_result['error_message'] if 'error_message' in delete_result else "Delete failed")
-        response.status_code = 500
+    delete_response = workers['DELETE'].delete_item(key)
+    if not delete_response['passed']:
+        return create_response(False, 500, [], delete_response['exception'])
+    return create_response(True, 200, delete_response['item'])
+
+def create_response(passed, status_code, data=[], err_msg=''):
+    response_object = {
+        'status': 'SUCCESS' if passed else 'FAILURE',
+        'data': data,
+        'err_msg': err_msg
+    }
+    response = flask.jsonify(response_object)
+    response.status_code = status_code
     return response
 
 # @app.route('/collection', methods=['GET'])
