@@ -71,7 +71,7 @@ class SearchWorker(BaseWorker):
             response = {"items": [], "passed": False}
             
             for book in openLibResponse["docs"]:
-                response["items"].append([{'name': book['title'], 'release_year': book['first_publish_year'], 'img_link': "https://covers.openlibrary.org/b/isbn/{}-L.jpg".format(book['isbn'][0]), 'guid': book['key'], 'created_by': book["author_name"]}])
+                response["items"].append({'title': book['title'], 'release_year': book['first_publish_year'], 'img_link': "https://covers.openlibrary.org/b/isbn/{}-L.jpg".format(book['isbn'][0]), 'guid': book['key'], 'created_by': book["author_name"]})
             
             response["passed"] = True
         except Exception as e:
@@ -83,7 +83,7 @@ class SearchWorker(BaseWorker):
         movie = requests.get(self.movie_lookup_template.format(guid, self.MDB_API_KEY)).json()
         credits = requests.get(self.movie_credits_lookup_template.format(guid, self.MDB_API_KEY)).json()
         directors = ", ".join([crewmember['name'] for crewmember in credits['crew'] if crewmember['job'] == 'Director'])
-        response = {'name': movie['title'], 'guid': movie['id'], 'release_year': movie['release_date'][:4], 'created_by': directors, 'img_link': "https://image.tmdb.org/t/p/w600_and_h900_bestv2{}".format(movie['poster_path']), 'language': movie['original_language'], 'summary': movie['overview'], 'duration': movie['runtime']}
+        response = {'title': movie['title'], 'guid': movie['id'], 'release_year': movie['release_date'][:4], 'created_by': directors, 'img_link': "https://image.tmdb.org/t/p/w600_and_h900_bestv2{}".format(movie['poster_path']), 'language': movie['original_language'], 'summary': movie['overview'], 'duration': movie['runtime']}
         return response
     
     def lookup_movie(self, title):
@@ -111,7 +111,7 @@ class SearchWorker(BaseWorker):
                 game_details = benedict(requests.get(self.game_key_req_template.format(game['guid'], self.GB_API_KEY), headers=self.header).json())
                 developer = game_details['results.developers[0].name'] if 'results.developers[0].name' in game_details else ""
                 platforms = [platform['name'] for platform in game['platforms']] if game['platforms'] else ""
-                response['items'].append({'name': game['name'], 'img_link': game['image']['medium_url'], 'created_by': developer, 'summary': game['deck'], 'release_year': game['expected_release_year'], 'guid': game['guid'], 'platforms': platforms})
+                response['items'].append({'title': game['name'], 'img_link': game['image']['medium_url'], 'created_by': developer, 'summary': game['deck'], 'release_year': game['expected_release_year'], 'guid': game['guid'], 'platforms': platforms})
             response["passed"] = True
         except Exception as e:
             logging.error("Exception in lookup for title {} in VideoGameController: {}".format(title, e))
@@ -142,7 +142,7 @@ class SearchWorker(BaseWorker):
         item_search_req = requests.get(self.bg_individual_item_template.format(item_dict['guid']))
         search_root = ET.fromstring(item_search_req.content).find('./item')
         names = [name.get('value', 'ERROR') for name in search_root.iterfind('name') if name.get('type', 'alternate') == 'primary']
-        item_dict['name'] = names[0]
+        item_dict['title'] = names[0]
         item_dict['img_link'] = search_root.find('./image').text if search_root.find('./image') is not None else ""
         designers = [designer.get('value', 'unknown') for designer in search_root.iterfind('link') if designer.get('type', 'none') == 'boardgamedesigner']
         item_dict['created_by'] = designers
@@ -177,7 +177,7 @@ class SearchWorker(BaseWorker):
         item_search_req = requests.get(self.rpg_individual_item_template.format(item_dict['guid']))
         search_root = ET.fromstring(item_search_req.content).find('./item')
         names = [name.get('value', 'ERROR') for name in search_root.iterfind('name') if name.get('type', 'alternate') == 'primary']
-        item_dict['name'] = names[0]
+        item_dict['title'] = names[0]
         item_dict['img_link'] = search_root.find('./image').text if search_root.find('./image') is not None else ""
         designers = [designer.get('value', 'unknown') for designer in search_root.iterfind('link') if designer.get('type', 'none') == 'rpgdesigner']
         item_dict['created_by'] = designers
@@ -191,7 +191,7 @@ class SearchWorker(BaseWorker):
             jikan_response = self.jikan_client.search("anime", title)
             for anime in jikan_response['data']:
                 response['items'].append({
-                    'name': anime['title_english'],
+                    'title': anime['title_english'],
                     'guid': anime['mal_id'],
                     'release_year': anime['aired']['prop']['from']['year'],
                     'summary': anime['synopsis'],
@@ -211,7 +211,7 @@ class SearchWorker(BaseWorker):
             results = requests.get(self.music_lookup_req_template.format(self.AUDIODB_API_KEY, artist)).json()
             for release in results['album']:
                 response['items'].append({
-                    'name': release['strAlbumStripped'],
+                    'title': release['strAlbumStripped'],
                     'guid': release['idAlbum'],
                     'img_link': release['strAlbumThumb'],
                     'release_year': release['intYearReleased'],
