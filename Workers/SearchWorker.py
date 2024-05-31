@@ -208,15 +208,15 @@ class SearchWorker(BaseWorker):
     def lookup_music(self, artist):
         response = {"items": [], "passed": False}
         try:
-            results = requests.get(self.music_lookup_req_template.format(self.AUDIODB_API_KEY, artist))
+            results = requests.get(self.music_lookup_req_template.format(self.AUDIODB_API_KEY, artist)).json()
             for release in results['album']:
-                response.append({
+                response['items'].append({
                     'name': release['strAlbumStripped'],
                     'guid': release['idAlbum'],
                     'img_link': release['strAlbumThumb'],
                     'release_year': release['intYearReleased'],
                     'created_by': release['strArtistStripped'],
-                    'summary': release['strDescriptionEn']
+                    'summary': release['strDescriptionEN'] if 'strDescriptionEN' in release else ""
                 })
             response['passed'] = True
         except Exception as e:
