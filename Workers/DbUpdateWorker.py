@@ -11,13 +11,13 @@ class DbUpdateWorker(BaseWorker):
         updateExpression = "set "
         update_items = []
         expressionAttributeValues = {}
+        
         for field_name, new_value in updated_fields.items():
             updateString = f'{field_name} = :{field_name[0]}'
             update_items.append(updateString)
             expressionAttributeValues[f':{field_name[0]}'] = new_value
         updateExpression += ", ".join(update_items)
-        print(updateExpression)
-        print(expressionAttributeValues)
+
         try:
             response['database_response'] = self.dynamodb.update_item(
                 Key={

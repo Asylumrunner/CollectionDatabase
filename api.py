@@ -127,10 +127,6 @@ def create_response(passed, status_code, data=[], err_msg=''):
     response.status_code = status_code
     return response
 
-# @app.route('/collection', methods=['GET'])
-# def get_every_table():
-
-        
 # def call_backup(controller):
 #     return controllers[controller].back_up_table()
 
