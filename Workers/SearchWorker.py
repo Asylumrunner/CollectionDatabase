@@ -1,3 +1,4 @@
+import pprint
 from .secrets import secrets
 from .BaseWorker import BaseWorker
 from jikanpy import Jikan
@@ -71,7 +72,11 @@ class SearchWorker(BaseWorker):
             response = {"items": [], "passed": False}
             
             for book in openLibResponse["docs"]:
-                response["items"].append({'title': book['title'], 'release_year': book['first_publish_year'], 'img_link': "https://covers.openlibrary.org/b/isbn/{}-L.jpg".format(book['isbn'][0]), 'guid': book['key'], 'created_by': book["author_name"]})
+                title = book.get('title', "Unknown Title")
+                release_year = book.get('first_publish_year', '0000')
+                img_link = "https://covers.openlibrary.org/b/isbn/{}-L.jpg".format(book['isbn'][0]) if 'isbn' in book else "none"
+                created_by = book.get("author_name", "Unknown Author")
+                response["items"].append({'title': title, 'release_year': release_year, 'img_link': img_link, 'guid': book['key'], 'created_by': created_by})
             
             response["passed"] = True
         except Exception as e:
@@ -82,8 +87,17 @@ class SearchWorker(BaseWorker):
     def movie_lookup(self, guid):
         movie = requests.get(self.movie_lookup_template.format(guid, self.MDB_API_KEY)).json()
         credits = requests.get(self.movie_credits_lookup_template.format(guid, self.MDB_API_KEY)).json()
-        directors = ", ".join([crewmember['name'] for crewmember in credits['crew'] if crewmember['job'] == 'Director'])
-        response = {'title': movie['title'], 'guid': movie['id'], 'release_year': movie['release_date'][:4], 'created_by': directors, 'img_link': "https://image.tmdb.org/t/p/w600_and_h900_bestv2{}".format(movie['poster_path']), 'language': movie['original_language'], 'summary': movie['overview'], 'duration': movie['runtime']}
+
+        crew = credits.get('crew', [])
+        directors = ", ".join([crewmember.get('name', 'Unknown Director') for crewmember in crew if crewmember.get('job') == 'Director'])
+        title = movie.get('title', 'Unknown Title')
+        release_year = movie.get('release_date', '0000')[:4]
+        img_link = "https://image.tmdb.org/t/p/w600_and_h900_bestv2{}".format(movie['poster_path']) if 'poster_path' in movie else None
+        language = movie.get('original_language', "Unknown Language")
+        summary = movie.get('overview', "No Summary")
+        duration = movie.get('runtime', "Unknown Runtime")
+
+        response = {'title': title, 'guid': movie['id'], 'release_year': release_year, 'created_by': directors, 'img_link': img_link, 'language': language, 'summary': summary, 'duration': duration}
         return response
     
     def lookup_movie(self, title):
@@ -110,8 +124,13 @@ class SearchWorker(BaseWorker):
             for game in req['results']:
                 game_details = benedict(requests.get(self.game_key_req_template.format(game['guid'], self.GB_API_KEY), headers=self.header).json())
                 developer = game_details['results.developers[0].name'] if 'results.developers[0].name' in game_details else ""
-                platforms = [platform['name'] for platform in game['platforms']] if game['platforms'] else ""
-                response['items'].append({'title': game['name'], 'img_link': game['image']['medium_url'], 'created_by': developer, 'summary': game['deck'], 'release_year': game['expected_release_year'], 'guid': game['guid'], 'platforms': platforms})
+                platform_objs = game.get('platforms', [])
+                platforms = [platform.get('name', 'Unknown Platform') for platform in platform_objs]
+                game_title = game.get('name', 'Unknown Game')
+                img_link = game.get('image', {}).get('medium_url', "None")
+                summary = game.get('deck', "No Summary")
+                release_year = game.get('original_release_date', '0000')
+                response['items'].append({'title': game_title, 'img_link': img_link, 'created_by': developer, 'summary': summary, 'release_year': release_year, 'guid': game['guid'], 'platforms': platforms})
             response["passed"] = True
         except Exception as e:
             logging.error("Exception in lookup for title {} in VideoGameController: {}".format(title, e))
@@ -191,10 +210,10 @@ class SearchWorker(BaseWorker):
             jikan_response = self.jikan_client.search("anime", title)
             for anime in jikan_response['data']:
                 response['items'].append({
-                    'title': anime['title_english'],
+                    'title': anime.get('title_english', "Unkown Anime"),
                     'guid': anime['mal_id'],
                     'release_year': anime['aired']['prop']['from']['year'],
-                    'summary': anime['synopsis'],
+                    'summary': anime.get('synopsis', "No Summary"),
                     'img_link': anime['images']['jpg']['image_url'],
                     'created_by': [studio['name'] for studio in anime['studios']],
                     'duration': anime['episodes']
@@ -211,11 +230,11 @@ class SearchWorker(BaseWorker):
             results = requests.get(self.music_lookup_req_template.format(self.AUDIODB_API_KEY, artist)).json()
             for release in results['album']:
                 response['items'].append({
-                    'title': release['strAlbumStripped'],
+                    'title': release.get('strAlbumStripped', "Unknown Album"),
                     'guid': release['idAlbum'],
-                    'img_link': release['strAlbumThumb'],
-                    'release_year': release['intYearReleased'],
-                    'created_by': release['strArtistStripped'],
+                    'img_link': release.get('strAlbumThumb', None),
+                    'release_year': release.get('intYearReleased', 0000),
+                    'created_by': release.get('strArtistStripped', "Unknown Artist"),
                     'summary': release['strDescriptionEN'] if 'strDescriptionEN' in release else ""
                 })
             response['passed'] = True
