@@ -74,7 +74,7 @@ class SearchWorker(BaseWorker):
             for book in openLibResponse["docs"]:
                 title = book.get('title', "Unknown Title")
                 release_year = book.get('first_publish_year', '0000')
-                img_link = "https://covers.openlibrary.org/b/isbn/{}-L.jpg".format(book['isbn'][0]) if 'isbn' in book else "none"
+                img_link = "https://covers.openlibrary.org/b/isbn/{}-L.jpg".format(book['isbn'][0]) if 'isbn' in book else None
                 created_by = book.get("author_name", "Unknown Author")
                 response["items"].append({'title': title, 'release_year': release_year, 'img_link': img_link, 'guid': book['key'], 'created_by': created_by})
             
@@ -127,7 +127,7 @@ class SearchWorker(BaseWorker):
                 platform_objs = game.get('platforms', [])
                 platforms = [platform.get('name', 'Unknown Platform') for platform in platform_objs]
                 game_title = game.get('name', 'Unknown Game')
-                img_link = game.get('image', {}).get('medium_url', "None")
+                img_link = game.get('image', {}).get('medium_url')
                 summary = game.get('deck', "No Summary")
                 release_year = game.get('original_release_date', '0000')
                 response['items'].append({'title': game_title, 'img_link': img_link, 'created_by': developer, 'summary': summary, 'release_year': release_year, 'guid': game['guid'], 'platforms': platforms})
@@ -162,7 +162,7 @@ class SearchWorker(BaseWorker):
         search_root = ET.fromstring(item_search_req.content).find('./item')
         names = [name.get('value', 'ERROR') for name in search_root.iterfind('name') if name.get('type', 'alternate') == 'primary']
         item_dict['title'] = names[0]
-        item_dict['img_link'] = search_root.find('./image').text if search_root.find('./image') is not None else ""
+        item_dict['img_link'] = search_root.find('./image').text if search_root.find('./image') is not None else None
         designers = [designer.get('value', 'unknown') for designer in search_root.iterfind('link') if designer.get('type', 'none') == 'boardgamedesigner']
         item_dict['created_by'] = designers
         item_dict['minimum_players'] = search_root.find('./minplayers').get('value', "-1")
@@ -197,7 +197,7 @@ class SearchWorker(BaseWorker):
         search_root = ET.fromstring(item_search_req.content).find('./item')
         names = [name.get('value', 'ERROR') for name in search_root.iterfind('name') if name.get('type', 'alternate') == 'primary']
         item_dict['title'] = names[0]
-        item_dict['img_link'] = search_root.find('./image').text if search_root.find('./image') is not None else ""
+        item_dict['img_link'] = search_root.find('./image').text if search_root.find('./image') is not None else None
         designers = [designer.get('value', 'unknown') for designer in search_root.iterfind('link') if designer.get('type', 'none') == 'rpgdesigner']
         item_dict['created_by'] = designers
         item_dict['release_year'] = search_root.find('./yearpublished').get('value', '0')
