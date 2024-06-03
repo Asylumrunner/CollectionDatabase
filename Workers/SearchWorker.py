@@ -76,7 +76,8 @@ class SearchWorker(BaseWorker):
                 release_year = book.get('first_publish_year', '0000')
                 img_link = "https://covers.openlibrary.org/b/isbn/{}-L.jpg".format(book['isbn'][0]) if 'isbn' in book else None
                 created_by = book.get("author_name", "Unknown Author")
-                response["items"].append({'title': title, 'release_year': release_year, 'img_link': img_link, 'guid': book['key'], 'created_by': created_by})
+                media_type = "book"
+                response["items"].append({'title': title, 'release_year': release_year, 'img_link': img_link, 'created_by': created_by, "media_type": media_type})
             
             response["passed"] = True
         except Exception as e:
@@ -96,8 +97,9 @@ class SearchWorker(BaseWorker):
         language = movie.get('original_language', "Unknown Language")
         summary = movie.get('overview', "No Summary")
         duration = movie.get('runtime', "Unknown Runtime")
+        media_type = "movie"
 
-        response = {'title': title, 'guid': movie['id'], 'release_year': release_year, 'created_by': directors, 'img_link': img_link, 'language': language, 'summary': summary, 'duration': duration}
+        response = {'title': title, 'release_year': release_year, 'created_by': directors, 'img_link': img_link, 'language': language, 'summary': summary, 'duration': duration, "media_type": media_type}
         return response
     
     def lookup_movie(self, title):
@@ -130,7 +132,8 @@ class SearchWorker(BaseWorker):
                 img_link = game.get('image', {}).get('medium_url')
                 summary = game.get('deck', "No Summary")
                 release_year = game.get('original_release_date', '0000')
-                response['items'].append({'title': game_title, 'img_link': img_link, 'created_by': developer, 'summary': summary, 'release_year': release_year, 'guid': game['guid'], 'platforms': platforms})
+                media_type = "video_game"
+                response['items'].append({'title': game_title, 'img_link': img_link, 'created_by': developer, 'summary': summary, 'release_year': release_year, 'platforms': platforms, 'media_type': media_type})
             response["passed"] = True
         except Exception as e:
             logging.error("Exception in lookup for title {} in VideoGameController: {}".format(title, e))
@@ -157,8 +160,8 @@ class SearchWorker(BaseWorker):
 
     def board_game_detail_lookup(self, child):
         item_dict = {}
-        item_dict['guid'] = child.get('id', '00000')
-        item_search_req = requests.get(self.bg_individual_item_template.format(item_dict['guid']))
+        guid = child.get('id', '00000')
+        item_search_req = requests.get(self.bg_individual_item_template.format(guid))
         search_root = ET.fromstring(item_search_req.content).find('./item')
         names = [name.get('value', 'ERROR') for name in search_root.iterfind('name') if name.get('type', 'alternate') == 'primary']
         item_dict['title'] = names[0]
@@ -170,6 +173,7 @@ class SearchWorker(BaseWorker):
         item_dict['year_published'] = search_root.find('./yearpublished').get('value', '0')
         item_dict['summary'] = search_root.find('./description').text
         item_dict['duration'] = search_root.find('./playingtime').get('value', 'eternity')
+        item_dict['media_type'] = "board_game"
         return item_dict
     
     def lookup_rpg(self, title):
@@ -192,8 +196,8 @@ class SearchWorker(BaseWorker):
 
     def rpg_detail_lookup(self, child):
         item_dict = {}
-        item_dict['guid'] = child.get('id', '00000')
-        item_search_req = requests.get(self.rpg_individual_item_template.format(item_dict['guid']))
+        guid = child.get('id', '00000')
+        item_search_req = requests.get(self.rpg_individual_item_template.format(guid))
         search_root = ET.fromstring(item_search_req.content).find('./item')
         names = [name.get('value', 'ERROR') for name in search_root.iterfind('name') if name.get('type', 'alternate') == 'primary']
         item_dict['title'] = names[0]
@@ -202,6 +206,7 @@ class SearchWorker(BaseWorker):
         item_dict['created_by'] = designers
         item_dict['release_year'] = search_root.find('./yearpublished').get('value', '0')
         item_dict['summary'] = search_root.find('./description').text
+        item_dict['media_type'] = "rpg"
         return item_dict
     
     def lookup_anime(self, title):
@@ -211,12 +216,12 @@ class SearchWorker(BaseWorker):
             for anime in jikan_response['data']:
                 response['items'].append({
                     'title': anime.get('title_english', "Unkown Anime"),
-                    'guid': anime['mal_id'],
                     'release_year': anime['aired']['prop']['from']['year'],
                     'summary': anime.get('synopsis', "No Summary"),
                     'img_link': anime['images']['jpg']['image_url'],
                     'created_by': [studio['name'] for studio in anime['studios']],
-                    'duration': anime['episodes']
+                    'duration': anime['episodes'],
+                    'media_type': "anime"
                 })
             response['passed'] = True
         except Exception as e:
@@ -231,11 +236,11 @@ class SearchWorker(BaseWorker):
             for release in results['album']:
                 response['items'].append({
                     'title': release.get('strAlbumStripped', "Unknown Album"),
-                    'guid': release['idAlbum'],
                     'img_link': release.get('strAlbumThumb', None),
                     'release_year': release.get('intYearReleased', 0000),
                     'created_by': release.get('strArtistStripped', "Unknown Artist"),
-                    'summary': release['strDescriptionEN'] if 'strDescriptionEN' in release else ""
+                    'summary': release['strDescriptionEN'] if 'strDescriptionEN' in release else "",
+                    'media_type': 'music'
                 })
             response['passed'] = True
         except Exception as e:
