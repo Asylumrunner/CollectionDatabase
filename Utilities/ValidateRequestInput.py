@@ -4,11 +4,11 @@ def validate_put_request(request):
     valid_media_types = ['album', 'anime', 'board_game', 'book', 'movie', 'rpg', 'video_game']
 
     valid_field_names = {
-        'album': ['title', 'media_type', 'release_year', 'img_link', 'duration', 'created_by', 'finished'],
+        'album': ['title', 'media_type', 'release_year', 'img_link', 'total_duration', 'created_by', 'finished'],
         'anime': ['title', 'media_type', 'release_year', 'img_link', 'summary', 'num_episodes', 'created_by', 'finished'],
-        'board_game': ['title', 'media_type', 'release_year', 'img_link', 'summary', 'duration', 'created_by', 'min_players', 'max_players', 'finished'],
+        'board_game': ['title', 'media_type', 'release_year', 'img_link', 'summary', 'total_duration', 'created_by', 'min_players', 'max_players', 'finished'],
         'book': ['title', 'media_type', 'release_year', 'img_link', 'summary', 'created_by', 'finished'],
-        'movie': ['title', 'media_type', 'release_year', 'img_link', 'summary', 'duration', 'created_by', 'language', 'finished'],
+        'movie': ['title', 'media_type', 'release_year', 'img_link', 'summary', 'total_duration', 'created_by', 'lang', 'finished'],
         'rpg': ['title', 'media_type', 'release_year', 'img_link', 'summary', 'created_by', 'finished'],
         'video_game': ['title', 'media_type', 'release_year', 'img_link', 'summary', 'created_by', 'platforms', 'finished']
     }
@@ -35,11 +35,11 @@ def validate_update_request(request):
     valid_media_types = ['album', 'anime', 'board_game', 'book', 'movie', 'rpg', 'video_game']
 
     valid_field_names = {
-        'album': ['title', 'media_type', 'release_year', 'img_link', 'duration', 'created_by', 'finished'],
+        'album': ['title', 'media_type', 'release_year', 'img_link', 'total_duration', 'created_by', 'finished'],
         'anime': ['title', 'media_type', 'release_year', 'img_link', 'summary', 'num_episodes', 'created_by', 'finished'],
-        'board_game': ['title', 'media_type', 'release_year', 'img_link', 'summary', 'duration', 'created_by', 'min_players', 'max_players', 'finished'],
+        'board_game': ['title', 'media_type', 'release_year', 'img_link', 'summary', 'total_duration', 'created_by', 'min_players', 'max_players', 'finished'],
         'book': ['title', 'media_type', 'release_year', 'img_link', 'summary', 'created_by', 'finished'],
-        'movie': ['title', 'media_type', 'release_year', 'img_link', 'summary', 'duration', 'created_by', 'language', 'finished'],
+        'movie': ['title', 'media_type', 'release_year', 'img_link', 'summary', 'total_duration', 'created_by', 'lang', 'finished'],
         'rpg': ['title', 'media_type', 'release_year', 'img_link', 'summary', 'created_by', 'finished'],
         'video_game': ['title', 'media_type', 'release_year', 'img_link', 'summary', 'created_by', 'platforms', 'finished']
     }

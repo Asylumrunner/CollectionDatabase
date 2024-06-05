@@ -99,7 +99,7 @@ class SearchWorker(BaseWorker):
         duration = movie.get('runtime', "Unknown Runtime")
         media_type = "movie"
 
-        response = {'title': title, 'release_year': release_year, 'created_by': directors, 'img_link': img_link, 'language': language, 'summary': summary, 'duration': duration, "media_type": media_type}
+        response = {'title': title, 'release_year': release_year, 'created_by': directors, 'img_link': img_link, 'lang': language, 'summary': summary, 'total_duration': duration, "media_type": media_type}
         return response
     
     def lookup_movie(self, title):
@@ -172,7 +172,7 @@ class SearchWorker(BaseWorker):
         item_dict['maximum_players'] = search_root.find('./maxplayers').get('value', "a billion")
         item_dict['year_published'] = search_root.find('./yearpublished').get('value', '0')
         item_dict['summary'] = search_root.find('./description').text
-        item_dict['duration'] = search_root.find('./playingtime').get('value', 'eternity')
+        item_dict['total_duration'] = search_root.find('./playingtime').get('value', 'eternity')
         item_dict['media_type'] = "board_game"
         return item_dict
     
@@ -220,7 +220,7 @@ class SearchWorker(BaseWorker):
                     'summary': anime.get('synopsis', "No Summary"),
                     'img_link': anime['images']['jpg']['image_url'],
                     'created_by': [studio['name'] for studio in anime['studios']],
-                    'duration': anime['episodes'],
+                    'total_duration': anime['episodes'],
                     'media_type': "anime"
                 })
             response['passed'] = True

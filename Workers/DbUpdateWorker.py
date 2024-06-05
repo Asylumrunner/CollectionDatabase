@@ -13,9 +13,9 @@ class DbUpdateWorker(BaseWorker):
         expressionAttributeValues = {}
         
         for field_name, new_value in updated_fields.items():
-            updateString = f'{field_name} = :{field_name[0]}'
+            updateString = f'{field_name} = :{field_name[0:3]}'
             update_items.append(updateString)
-            expressionAttributeValues[f':{field_name[0]}'] = new_value
+            expressionAttributeValues[f':{field_name[0:3]}'] = new_value
         updateExpression += ", ".join(update_items)
 
         try:
