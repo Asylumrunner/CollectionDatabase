@@ -72,10 +72,10 @@ class SearchWorker(BaseWorker):
             response = {"items": [], "passed": False}
             
             for book in openLibResponse["docs"]:
-                title = book.get('title', "Unknown Title")
-                release_year = book.get('first_publish_year', '0000')
+                title = getIfUseful(book, 'title', "Unknown Title")
+                release_year = getIfUseful(book, 'first_publish_year', 'Release Year Unknown')
                 img_link = "https://covers.openlibrary.org/b/isbn/{}-L.jpg".format(book['isbn'][0]) if 'isbn' in book else None
-                created_by = book.get("author_name", "Unknown Author")
+                created_by = getIfUseful(book, "author_name", "Unknown Author")
                 media_type = "book"
                 response["items"].append({'title': title, 'release_year': release_year, 'img_link': img_link, 'created_by': created_by, "media_type": media_type})
             
@@ -87,16 +87,17 @@ class SearchWorker(BaseWorker):
     
     def movie_lookup(self, guid):
         movie = requests.get(self.movie_lookup_template.format(guid, self.MDB_API_KEY)).json()
+        
         credits = requests.get(self.movie_credits_lookup_template.format(guid, self.MDB_API_KEY)).json()
-
-        crew = credits.get('crew', [])
+        crew = getIfUseful(credits, 'crew', [])
         directors = ", ".join([crewmember.get('name', 'Unknown Director') for crewmember in crew if crewmember.get('job') == 'Director'])
-        title = movie.get('title', 'Unknown Title')
+        
+        title = getIfUseful( movie, 'title', 'Unknown Title')
         release_year = movie.get('release_date', '0000')[:4]
         img_link = "https://image.tmdb.org/t/p/w600_and_h900_bestv2{}".format(movie['poster_path']) if 'poster_path' in movie else None
-        language = movie.get('original_language', "Unknown Language")
-        summary = movie.get('overview', "No Summary")
-        duration = movie.get('runtime', "Unknown Runtime")
+        language = getIfUseful(movie, 'original_language', "Unknown Language")
+        summary = getIfUseful(movie, 'overview', "No Summary")
+        duration = getIfUseful(movie, 'runtime', "Unknown Runtime")
         media_type = "movie"
 
         response = {'title': title, 'release_year': release_year, 'created_by': directors, 'img_link': img_link, 'lang': language, 'summary': summary, 'total_duration': duration, "media_type": media_type}
@@ -126,12 +127,12 @@ class SearchWorker(BaseWorker):
             for game in req['results']:
                 game_details = benedict(requests.get(self.game_key_req_template.format(game['guid'], self.GB_API_KEY), headers=self.header).json())
                 developer = game_details['results.developers[0].name'] if 'results.developers[0].name' in game_details else ""
-                platform_objs = game.get('platforms', [])
-                platforms = [platform.get('name', 'Unknown Platform') for platform in platform_objs]
-                game_title = game.get('name', 'Unknown Game')
-                img_link = game.get('image', {}).get('medium_url')
-                summary = game.get('deck', "No Summary")
-                release_year = game.get('original_release_date', '0000')
+                platform_objs = getIfUseful(game, 'platforms', [])
+                platforms = [getIfUseful(platform, 'name', 'Unknown Platform') for platform in platform_objs]
+                game_title = getIfUseful(game, 'name', 'Unknown Game')
+                img_link = getIfUseful(game, 'image', {}).get('medium_url')
+                summary = getIfUseful(game, 'deck', "No Summary")
+                release_year = getIfUseful(game, 'original_release_date', 'Release Date Unknown')
                 media_type = "video_game"
                 response['items'].append({'title': game_title, 'img_link': img_link, 'created_by': developer, 'summary': summary, 'release_year': release_year, 'platforms': platforms, 'media_type': media_type})
             response["passed"] = True
@@ -247,3 +248,17 @@ class SearchWorker(BaseWorker):
             logging.error("Exception in lookup for title {} in MusicController: {}".format(artist, e))
             response["exception"] = str(e)
         return response
+
+# Utility function to save some readability
+# Returns value for key if it exists and is truthy, otherwise returns default value
+def getIfUseful(object, key, defaultValue=None):
+    if isinstance(key, list):
+        search_ptr = object
+        for subkey in key:
+            search_ptr = search_ptr.get(subkey, None)
+            if not bool(search_ptr):
+                return defaultValue
+        return search_ptr
+    else:
+        value = object.get(key, None)
+        return value if bool(value) else defaultValue
