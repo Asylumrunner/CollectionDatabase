@@ -151,7 +151,8 @@ class SearchWorker(BaseWorker):
                 lookups = executor.map(self.board_game_detail_lookup, root)
             
             for lookup in lookups:
-                response['items'].append(lookup)
+                if lookup:
+                    response['items'].append(lookup)
             
             response["passed"] = True
         except Exception as e:
@@ -164,18 +165,21 @@ class SearchWorker(BaseWorker):
         guid = child.get('id', '00000')
         item_search_req = requests.get(self.bg_individual_item_template.format(guid))
         search_root = ET.fromstring(item_search_req.content).find('./item')
-        names = [name.get('value', 'ERROR') for name in search_root.iterfind('name') if name.get('type', 'alternate') == 'primary']
-        item_dict['title'] = names[0]
-        item_dict['img_link'] = search_root.find('./image').text if search_root.find('./image') is not None else None
-        designers = [designer.get('value', 'unknown') for designer in search_root.iterfind('link') if designer.get('type', 'none') == 'boardgamedesigner']
-        item_dict['created_by'] = designers
-        item_dict['minimum_players'] = search_root.find('./minplayers').get('value', "-1")
-        item_dict['maximum_players'] = search_root.find('./maxplayers').get('value', "a billion")
-        item_dict['year_published'] = search_root.find('./yearpublished').get('value', '0')
-        item_dict['summary'] = search_root.find('./description').text
-        item_dict['total_duration'] = search_root.find('./playingtime').get('value', 'eternity')
-        item_dict['media_type'] = "board_game"
-        return item_dict
+        if search_root:
+            names = [name.get('value', 'ERROR') for name in search_root.iterfind('name') if name.get('type', 'alternate') == 'primary']
+            item_dict['title'] = names[0]
+            item_dict['img_link'] = search_root.find('./image').text if search_root.find('./image') is not None else None
+            designers = [designer.get('value', 'unknown') for designer in search_root.iterfind('link') if designer.get('type', 'none') == 'boardgamedesigner']
+            item_dict['created_by'] = designers
+            item_dict['minimum_players'] = search_root.find('./minplayers').get('value', "-1")
+            item_dict['maximum_players'] = search_root.find('./maxplayers').get('value', "a billion")
+            item_dict['year_published'] = search_root.find('./yearpublished').get('value', '0')
+            item_dict['summary'] = search_root.find('./description').text
+            item_dict['total_duration'] = search_root.find('./playingtime').get('value', 'eternity')
+            item_dict['media_type'] = "board_game"
+            return item_dict
+        else:
+            return {}
     
     def lookup_rpg(self, title):
         response = {"items": [], "passed": False}
@@ -187,7 +191,8 @@ class SearchWorker(BaseWorker):
                 lookups = executor.map(self.rpg_detail_lookup, root)
             
             for lookup in lookups:
-                response["items"].append(lookup)
+                if lookup:
+                    response["items"].append(lookup)
             
             response['passed'] = True
         except Exception as e:
@@ -200,15 +205,18 @@ class SearchWorker(BaseWorker):
         guid = child.get('id', '00000')
         item_search_req = requests.get(self.rpg_individual_item_template.format(guid))
         search_root = ET.fromstring(item_search_req.content).find('./item')
-        names = [name.get('value', 'ERROR') for name in search_root.iterfind('name') if name.get('type', 'alternate') == 'primary']
-        item_dict['title'] = names[0]
-        item_dict['img_link'] = search_root.find('./image').text if search_root.find('./image') is not None else None
-        designers = [designer.get('value', 'unknown') for designer in search_root.iterfind('link') if designer.get('type', 'none') == 'rpgdesigner']
-        item_dict['created_by'] = designers
-        item_dict['release_year'] = search_root.find('./yearpublished').get('value', '0')
-        item_dict['summary'] = search_root.find('./description').text
-        item_dict['media_type'] = "rpg"
-        return item_dict
+        if search_root:
+            names = [name.get('value', 'ERROR') for name in search_root.iterfind('name') if name.get('type', 'alternate') == 'primary']
+            item_dict['title'] = names[0]
+            item_dict['img_link'] = search_root.find('./image').text if search_root.find('./image') is not None else None
+            designers = [designer.get('value', 'unknown') for designer in search_root.iterfind('link') if designer.get('type', 'none') == 'rpgdesigner']
+            item_dict['created_by'] = designers
+            item_dict['release_year'] = search_root.find('./yearpublished').get('value', '0')
+            item_dict['summary'] = search_root.find('./description').text
+            item_dict['media_type'] = "rpg"
+            return item_dict
+        else:
+            return {}
     
     def lookup_anime(self, title):
         response = {"items": [], "passed": False}
