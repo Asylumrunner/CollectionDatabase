@@ -6,7 +6,7 @@ import xml.etree.ElementTree as ET
 import concurrent.futures
 import logging
 import requests
-from benedict import benedict
+from benedict import BeneDict
 
 class SearchWorker(BaseWorker):
     def __init__(self):
@@ -125,7 +125,7 @@ class SearchWorker(BaseWorker):
         try:
             req = requests.get(self.vg_lookup_req_template.format(self.GB_API_KEY, title), headers=self.header).json()
             for game in req['results']:
-                game_details = benedict(requests.get(self.game_key_req_template.format(game['guid'], self.GB_API_KEY), headers=self.header).json())
+                game_details = BeneDict(requests.get(self.game_key_req_template.format(game['guid'], self.GB_API_KEY), headers=self.header).json())
                 developer = game_details['results.developers[0].name'] if 'results.developers[0].name' in game_details else ""
                 platform_objs = getIfUseful(game, 'platforms', [])
                 platforms = [getIfUseful(platform, 'name', 'Unknown Platform') for platform in platform_objs]
