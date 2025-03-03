@@ -61,5 +61,7 @@ class ListWorker(BaseWorker):
         return None
     
     def delete_item_from_list(self, listId, item, user):
-        # TODO: Create endpoint
+        cursor = self.database.cursor()
+        delete_item = ("DELETE FROM list_items "
+                    "WHERE id = %s and owner_id = %s")
         return None
