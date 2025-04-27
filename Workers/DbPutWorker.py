@@ -6,6 +6,13 @@ from datetime import datetime
 class DbPutWorker(BaseWorker):
     def __init__(self):
         super().__init__()
+
+        check_item_query = ("SELECT * FROM items "
+                            "INNER JOIN media_types ON items.")
+
+    def put_item(self, user_id, item):
+        cursor = self.database.cursor()
+
     
     def put_item(self, entry):
         id = str(uuid4())

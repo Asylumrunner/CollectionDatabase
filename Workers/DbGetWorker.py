@@ -9,9 +9,10 @@ class DbGetWorker(BaseWorker):
     def get_user_items(self, user_id):
         response = {'passed': False}
         try:
-            query = "SELECT * FROM collection_items WHERE user_id = \'{}\'".format(user_id)
+            query = ("SELECT * FROM collection_items "
+                    "INNER JOIN items ON collection_items.item_id = items.id AND collection_items.user_id = %s")
             cursor = self.database.cursor()
-            cursor.execute(query)
+            cursor.execute(query, user_id)
             response['data'] = cursor.fetchall()
             cursor.close()
             response['passed'] = True
