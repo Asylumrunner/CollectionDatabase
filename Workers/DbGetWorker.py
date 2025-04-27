@@ -5,6 +5,20 @@ import logging
 class DbGetWorker(BaseWorker):
     def __init__(self):
         super().__init__()
+
+    def get_user_items(self, user_id):
+        response = {'passed': False}
+        try:
+            query = "SELECT * FROM collection_items WHERE user_id = \'{}\'".format(user_id)
+            cursor = self.database.cursor()
+            cursor.execute(query)
+            response['data'] = cursor.fetchall()
+            cursor.close()
+            response['passed'] = True
+        except Exception as e:
+            logging.error("Exception while retrieving items from database: {}".format(e))
+            response['exception'] = str(e)
+        return response
     
     def get_item(self, key):
         response = {'passed': False}
