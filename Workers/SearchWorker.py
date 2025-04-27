@@ -171,17 +171,17 @@ class SearchWorker(BaseWorker):
         item_search_req = requests.get(self.bg_individual_item_template.format(guid))
         search_root = ET.fromstring(item_search_req.content).find('./item')
         if search_root:
-            names = [name.get('value', 'ERROR') for name in search_root.iterfind('name') if name.get('type', 'alternate') == 'primary']
+            names = [name.get('value') for name in search_root.iterfind('name') if name.get('type') == 'primary']
             item_dict['title'] = names[0]
             item_dict['img_link'] = search_root.find('./image').text if search_root.find('./image') is not None else None
-            designers = [designer.get('value', 'unknown') for designer in search_root.iterfind('link') if designer.get('type', 'none') == 'boardgamedesigner']
+            designers = [designer.get('value', 'unknown') for designer in search_root.iterfind('link') if designer.get('type') == 'boardgamedesigner']
             item_dict['created_by'] = designers
             item_dict['original_api_id'] = guid
-            item_dict['minimum_players'] = search_root.find('./minplayers').get('value', "-1")
-            item_dict['maximum_players'] = search_root.find('./maxplayers').get('value', "a billion")
-            item_dict['year_published'] = search_root.find('./yearpublished').get('value', '0')
+            item_dict['minimum_players'] = search_root.find('./minplayers').get('value')
+            item_dict['maximum_players'] = search_root.find('./maxplayers').get('value')
+            item_dict['year_published'] = search_root.find('./yearpublished').get('value')
             item_dict['summary'] = search_root.find('./description').text
-            item_dict['total_duration'] = search_root.find('./playingtime').get('value', 'eternity')
+            item_dict['total_duration'] = search_root.find('./playingtime').get('value')
             item_dict['media_type'] = "board_game"
             return item_dict
         else:
@@ -215,7 +215,7 @@ class SearchWorker(BaseWorker):
             names = [name.get('value', 'ERROR') for name in search_root.iterfind('name') if name.get('type', 'alternate') == 'primary']
             item_dict['title'] = names[0]
             item_dict['img_link'] = search_root.find('./image').text if search_root.find('./image') is not None else None
-            designers = [designer.get('value', 'unknown') for designer in search_root.iterfind('link') if designer.get('type', 'none') == 'rpgdesigner']
+            designers = [designer.get('value') for designer in search_root.iterfind('link') if designer.get('type', 'none') == 'rpgdesigner']
             item_dict['created_by'] = designers
             item_dict['release_year'] = search_root.find('./yearpublished').get('value', '0')
             item_dict['original_api_id'] = guid
@@ -230,11 +230,10 @@ class SearchWorker(BaseWorker):
         try:
             jikan_response = self.jikan_client.search("anime", title)
             for anime in jikan_response['data']:
-                pprint.pprint(anime)
                 response['items'].append({
-                    'title': anime.get('title_english', None),
+                    'title': anime.get('title_english'),
                     'release_year': anime['aired']['prop']['from']['year'],
-                    'summary': anime.get('synopsis', None),
+                    'summary': anime.get('synopsis'),
                     'img_link': anime['images']['jpg']['image_url'],
                     'original_api_id': anime['mal_id'],
                     'created_by': [studio['name'] for studio in anime['studios']],
@@ -253,11 +252,12 @@ class SearchWorker(BaseWorker):
             results = requests.get(self.music_lookup_req_template.format(self.AUDIODB_API_KEY, artist)).json()
             for release in results['album']:
                 response['items'].append({
-                    'title': release.get('strAlbumStripped', "Unknown Album"),
-                    'img_link': release.get('strAlbumThumb', None),
-                    'release_year': release.get('intYearReleased', 0000),
-                    'created_by': release.get('strArtistStripped', "Unknown Artist"),
-                    'summary': release['strDescriptionEN'] if 'strDescriptionEN' in release else "",
+                    'title': release.get('strAlbumStripped'),
+                    'img_link': release.get('strAlbumThumb'),
+                    'release_year': release.get('intYearReleased'),
+                    'created_by': release.get('strArtistStripped'),
+                    'original_api_id': release['idAlbum'],
+                    'summary': release.get('strDescriptionEN'),
                     'media_type': 'music'
                 })
             response['passed'] = True
