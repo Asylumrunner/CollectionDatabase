@@ -137,3 +137,11 @@ CREATE TABLE IF NOT EXISTS game_platform_availabilities (
     FOREIGN KEY (platform_id)
         REFERENCES video_game_platforms(platform_id)
 );
+
+INSERT INTO media_types (type_name) VALUES ('book');
+INSERT INTO media_types (type_name) VALUES ('movie');
+INSERT INTO media_types (type_name) VALUES ('video_game');
+INSERT INTO media_types (type_name) VALUES ('board_game');
+INSERT INTO media_types (type_name) VALUES ('rpg');
+INSERT INTO media_types (type_name) VALUES ('anime');
+INSERT INTO media_types (type_name) VALUES ('album');

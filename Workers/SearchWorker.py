@@ -6,7 +6,7 @@ import xml.etree.ElementTree as ET
 import concurrent.futures
 import logging
 import requests
-from benedict import BeneDict
+from benedict import benedict
 
 class SearchWorker(BaseWorker):
     def __init__(self):
@@ -18,7 +18,7 @@ class SearchWorker(BaseWorker):
         self.bg_individual_item_template = "https://www.boardgamegeek.com/xmlapi2/thing?id={}"
 
         # Used for Book Lookup
-        self.book_lookup_req_template = "https://openlibrary.org/search.json?q={}&page={}"
+        self.book_lookup_req_template = "https://openlibrary.org/search.json?q={}&page={}&fields=key,title,author_name,cover_i,first_publish_year,editions,editions.isbn,editions.publish_date"
 
         # Used for Movie Lookup
         self.MDB_API_KEY = secrets['MovieDB_Key']
@@ -72,13 +72,13 @@ class SearchWorker(BaseWorker):
             response = {"items": [], "passed": False}
             
             for book in openLibResponse["docs"]:
-                title = getIfUseful(book, 'title', "Unknown Title")
-                release_year = getIfUseful(book, 'first_publish_year', 'Release Year Unknown')
-                img_link = "https://covers.openlibrary.org/b/isbn/{}-L.jpg".format(book['isbn'][0]) if 'isbn' in book else None
-                created_by = getIfUseful(book, "author_name", "Unknown Author")
+                title = getIfUseful(book, 'title')
+                release_year = getIfUseful(book, 'first_publish_year')
+                isbn = book['editions']['docs'][0]['isbn'][0] if 'isbn' in book['editions']['docs'][0] else ''
+                img_link = "https://covers.openlibrary.org/a/id/{}-M.jpg".format(book['cover_i']) if 'cover_i' in book else ''
+                created_by = getIfUseful(book, "author_name")
                 media_type = "book"
-                response["items"].append({'title': title, 'release_year': release_year, 'img_link': img_link, 'created_by': created_by, "media_type": media_type})
-            
+                response["items"].append({'title': title, 'original_api_id': book['key'], 'isbn': isbn, 'release_year': release_year, 'printing_year': release_year, 'img_link': img_link, 'created_by': created_by, "media_type": media_type})
             response["passed"] = True
         except Exception as e:
             logging.error("Exception in lookup for title {} in BookController: {}".format(title, e))
@@ -87,20 +87,24 @@ class SearchWorker(BaseWorker):
     
     def movie_lookup(self, guid):
         movie = requests.get(self.movie_lookup_template.format(guid, self.MDB_API_KEY)).json()
+        movie_id = movie.get('id', '')
         
         credits = requests.get(self.movie_credits_lookup_template.format(guid, self.MDB_API_KEY)).json()
         crew = getIfUseful(credits, 'crew', [])
-        directors = ", ".join([crewmember.get('name', 'Unknown Director') for crewmember in crew if crewmember.get('job') == 'Director'])
+        directors = []
+        for crewmember in crew:
+            if crewmember.get('job') == 'Director':
+                directors.append(crewmember.get('name', 'Unknown Director'))
         
-        title = getIfUseful( movie, 'title', 'Unknown Title')
+        title = getIfUseful( movie, 'title')
         release_year = movie.get('release_date', '0000')[:4]
         img_link = "https://image.tmdb.org/t/p/w600_and_h900_bestv2{}".format(movie['poster_path']) if 'poster_path' in movie else None
-        language = getIfUseful(movie, 'original_language', "Unknown Language")
-        summary = getIfUseful(movie, 'overview', "No Summary")
-        duration = getIfUseful(movie, 'runtime', "Unknown Runtime")
+        language = getIfUseful(movie, 'original_language')
+        summary = getIfUseful(movie, 'overview')
+        duration = getIfUseful(movie, 'runtime')
         media_type = "movie"
 
-        response = {'title': title, 'release_year': release_year, 'created_by': directors, 'img_link': img_link, 'lang': language, 'summary': summary, 'total_duration': duration, "media_type": media_type}
+        response = {'title': title, 'original_api_id': movie_id, 'release_year': release_year, 'created_by': directors, 'img_link': img_link, 'lang': language, 'summary': summary, 'total_duration': duration, "media_type": media_type}
         return response
     
     def lookup_movie(self, title):
@@ -125,16 +129,17 @@ class SearchWorker(BaseWorker):
         try:
             req = requests.get(self.vg_lookup_req_template.format(self.GB_API_KEY, title), headers=self.header).json()
             for game in req['results']:
-                game_details = BeneDict(requests.get(self.game_key_req_template.format(game['guid'], self.GB_API_KEY), headers=self.header).json())
+                game_details = benedict(requests.get(self.game_key_req_template.format(game['guid'], self.GB_API_KEY), headers=self.header).json())
                 developer = game_details['results.developers[0].name'] if 'results.developers[0].name' in game_details else ""
                 platform_objs = getIfUseful(game, 'platforms', [])
-                platforms = [getIfUseful(platform, 'name', 'Unknown Platform') for platform in platform_objs]
-                game_title = getIfUseful(game, 'name', 'Unknown Game')
+                platforms = [getIfUseful(platform, 'name') for platform in platform_objs]
+                game_title = getIfUseful(game, 'name')
                 img_link = getIfUseful(game, 'image', {}).get('medium_url')
-                summary = getIfUseful(game, 'deck', "No Summary")
-                release_year = getIfUseful(game, 'original_release_date', 'Release Date Unknown')
+                summary = getIfUseful(game, 'deck')
+                release_year = getIfUseful(game, 'original_release_date', '')[:4]
                 media_type = "video_game"
-                response['items'].append({'title': game_title, 'img_link': img_link, 'created_by': developer, 'summary': summary, 'release_year': release_year, 'platforms': platforms, 'media_type': media_type})
+                guid = game['guid']
+                response['items'].append({'title': game_title, 'original_api_id': guid, 'img_link': img_link, 'created_by': developer, 'summary': summary, 'release_year': release_year, 'platforms': platforms, 'media_type': media_type})
             response["passed"] = True
         except Exception as e:
             logging.error("Exception in lookup for title {} in VideoGameController: {}".format(title, e))
@@ -171,6 +176,7 @@ class SearchWorker(BaseWorker):
             item_dict['img_link'] = search_root.find('./image').text if search_root.find('./image') is not None else None
             designers = [designer.get('value', 'unknown') for designer in search_root.iterfind('link') if designer.get('type', 'none') == 'boardgamedesigner']
             item_dict['created_by'] = designers
+            item_dict['original_api_id'] = guid
             item_dict['minimum_players'] = search_root.find('./minplayers').get('value', "-1")
             item_dict['maximum_players'] = search_root.find('./maxplayers').get('value', "a billion")
             item_dict['year_published'] = search_root.find('./yearpublished').get('value', '0')
@@ -212,6 +218,7 @@ class SearchWorker(BaseWorker):
             designers = [designer.get('value', 'unknown') for designer in search_root.iterfind('link') if designer.get('type', 'none') == 'rpgdesigner']
             item_dict['created_by'] = designers
             item_dict['release_year'] = search_root.find('./yearpublished').get('value', '0')
+            item_dict['original_api_id'] = guid
             item_dict['summary'] = search_root.find('./description').text
             item_dict['media_type'] = "rpg"
             return item_dict
@@ -223,13 +230,15 @@ class SearchWorker(BaseWorker):
         try:
             jikan_response = self.jikan_client.search("anime", title)
             for anime in jikan_response['data']:
+                pprint.pprint(anime)
                 response['items'].append({
-                    'title': anime.get('title_english', "Unkown Anime"),
+                    'title': anime.get('title_english', None),
                     'release_year': anime['aired']['prop']['from']['year'],
-                    'summary': anime.get('synopsis', "No Summary"),
+                    'summary': anime.get('synopsis', None),
                     'img_link': anime['images']['jpg']['image_url'],
+                    'original_api_id': anime['mal_id'],
                     'created_by': [studio['name'] for studio in anime['studios']],
-                    'total_duration': anime['episodes'],
+                    'episodes': anime['episodes'],
                     'media_type': "anime"
                 })
             response['passed'] = True
