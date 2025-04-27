@@ -9,6 +9,7 @@
     * Role-Playing Games
     * Albums - Musicbrainz
     * Books - OpenLibrary provided
+* Make sure my DB instance is even large enough to handle it lmao
 * Set up... some sort of automated data updater?
 * Reconfigure SearchWorker into DbSearchWorker, read exclusively from table
 
