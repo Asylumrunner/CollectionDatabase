@@ -9,3 +9,4 @@ _pycache_/
 *.txt
 *.csv
 bootstrap-4.1.3-dist/
+datasets/

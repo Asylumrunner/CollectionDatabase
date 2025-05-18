@@ -35,6 +35,7 @@ class ListWorker(BaseWorker):
                  "JOIN list_items li on i.id = li.item_id "
                  "JOIN lists l on li.list_id = l.id"
                  "WHERE li.list_id = %s AND l.owner_id = %s ")
+        # I feel like this is fucked but lemme double check
         cursor.execute(query, (listId, user))
         results = []
         for (name, type, release_year, img_link) in cursor:
