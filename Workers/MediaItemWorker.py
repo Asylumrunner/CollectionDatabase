@@ -5,8 +5,10 @@ class MediaItemWorker(BaseWorker):
     def __init__(self):
         super().__init__()
         self.add_item_query = ("INSERT INTO items "
-                     "(title, media_type, release_year, date_added, created_by, img_link, original_api_id) "
-                     "VALUES (%s, %s, %s, %s, %s, %s, %s)")
+                     "(title, media_type, release_year, created_by, img_link, original_api_id) "
+                     "SELECT m.id, %s, %s, %s, %s, %s "
+                     "FROM media_types m "
+                     "WHERE m.type_name = %s")
         self.add_album_query = ("INSERT INTO albums "
                                 "(id, summary) "
                                 "VALUES (%s, %s)")
@@ -28,11 +30,20 @@ class MediaItemWorker(BaseWorker):
         self.add_video_game_query = ("INSERT INTO video_games "
                                      "(id, summary) "
                                      "VALUES (%s, %s)")
+        self.add_video_game_availability_query = ("INSERT INTO game_platform_availabilities "
+                                                  "(game_id, platform_id) "
+                                                  "SELECT %s, p.platform_id "
+                                                  "FROM video_game_platforms p "
+                                                  "WHERE p.platform_name = %s")
         
-        self.get_item_query = ("SELECT title, media_type, release_year, date_added, created_by, img_link, {}"
+        self.get_item_query = ("SELECT title, mt.type_name, release_year, date_added, created_by, img_link, {}"
                                "FROM items i "
-                               "JOIN {} sl on i.id = sl.id"
-                               "WHERE i.id = %s")
+                               "JOIN {} sl ON i.id = sl.id"
+                               "JOIN media_types mt ON mt.id = i.media_type "
+                               "WHERE i.id = %s ")
+        
+        self.get_user_items_query = ("SELECT * FROM collection_items "
+                    "INNER JOIN items ON collection_items.item_id = items.id AND collection_items.user_id = %s")
 
     def add_item(self, user, item):
         response = {'passed': False}
@@ -47,10 +58,8 @@ class MediaItemWorker(BaseWorker):
     def get_user_items(self, user_id):
         response = {'passed': False}
         try:
-            query = ("SELECT * FROM collection_items "
-                    "INNER JOIN items ON collection_items.item_id = items.id AND collection_items.user_id = %s")
             cursor = self.database.cursor()
-            cursor.execute(query, user_id)
+            cursor.execute(self.get_user_items_query, user_id)
             response['data'] = cursor.fetchall()
             cursor.close()
             response['passed'] = True

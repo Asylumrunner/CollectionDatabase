@@ -2,7 +2,8 @@ CREATE TABLE IF NOT EXISTS users (
     user_id INT NOT NULL AUTO_INCREMENT,
   	cognito_id VARCHAR(255) NOT NULL,
     username VARCHAR(255) NOT NULL,
-    register_date DATETIME,
+    date_added DATETIME DEFAULT CURRENT_TIMESTAMP,
+    last_login DATETIME DEFAULT CURRENT_TIMESTAMP,
     PRIMARY KEY (user_id)
 );
 
@@ -17,7 +18,8 @@ CREATE TABLE IF NOT EXISTS items (
     title VARCHAR(255),
     media_type INT,
     release_year SMALLINT,
-    date_added DATETIME,
+    date_added DATETIME DEFAULT CURRENT_TIMESTAMP,
+    date_last_updated DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     created_by VARCHAR(255),
     img_link VARCHAR(255),
     original_api_id VARCHAR(255),
@@ -93,7 +95,7 @@ CREATE TABLE IF NOT EXISTS albums (
 CREATE TABLE IF NOT EXISTS collection_items (
     item_id INT NOT NULL,
     user_id INT NOT NULL,
-    date_added DATETIME,
+    date_added DATETIME DEFAULT CURRENT_TIMESTAMP,
     PRIMARY KEY (item_id, user_id),
     FOREIGN KEY (item_id)
         REFERENCES items(id),
@@ -105,7 +107,7 @@ CREATE TABLE IF NOT EXISTS user_lists (
     list_id INT NOT NULL AUTO_INCREMENT,
     list_name VARCHAR(64) NOT NULL,
     user_id INT NOT NULL,
-    date_create DATETIME,
+    date_added DATETIME DEFAULT CURRENT_TIMESTAMP,
     PRIMARY KEY (list_id),
     FOREIGN KEY (user_id)
         REFERENCES users(user_id)
@@ -114,7 +116,7 @@ CREATE TABLE IF NOT EXISTS user_lists (
 CREATE TABLE IF NOT EXISTS list_items (
     item_id INT NOT NULL,
     list_id INT NOT NULL,
-    date_added DATETIME,
+    date_added DATETIME DEFAULT CURRENT_TIMESTAMP,
     PRIMARY KEY(item_id, list_id),
     FOREIGN KEY (item_id)
         REFERENCES items(id),
