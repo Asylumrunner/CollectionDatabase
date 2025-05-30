@@ -9,27 +9,35 @@ class MediaItemWorker(BaseWorker):
                      "SELECT m.id, %s, %s, %s, %s, %s "
                      "FROM media_types m "
                      "WHERE m.type_name = %s")
+        
         self.add_album_query = ("INSERT INTO albums "
                                 "(id, summary) "
                                 "VALUES (%s, %s)")
+        
         self.add_anime_query = ("INSERT INTO anime "
                                 "(id, episodes, summary) "
                                 "VALUES (%s, %s, %s)")
+        
         self.add_board_game_query = ("INSERT INTO board_games "
                                       "(id, minimum_players, maximum_players, summary, duration) "
                                       "VALUES (%s, %s, %s, %s, %s)")
+        
         self.add_book_query = ("INSERT INTO books "
                                "(id, isbn, printing_year) "
                                "VALUES (%s, %s, %s)")
+        
         self.add_movie_query = ("INSERT INTO movies "
                                 "(id, lang, summary, duration) "
                                 "VALUES (%s, %s, %s, %s)")
+        
         self.add_rpg_query = ("INSERT INTO rpgs "
                               "(id, isbn, summary) "
                               "VALUES (%s, %s, %s)")
+        
         self.add_video_game_query = ("INSERT INTO video_games "
                                      "(id, summary) "
                                      "VALUES (%s, %s)")
+        
         self.add_video_game_availability_query = ("INSERT INTO game_platform_availabilities "
                                                   "(game_id, platform_id) "
                                                   "SELECT %s, p.platform_id "
