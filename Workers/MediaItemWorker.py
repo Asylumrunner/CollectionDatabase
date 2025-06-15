@@ -44,11 +44,19 @@ class MediaItemWorker(BaseWorker):
                                                   "FROM video_game_platforms p "
                                                   "WHERE p.platform_name = %s")
         
-        self.get_item_query = ("SELECT title, mt.type_name, release_year, date_added, created_by, img_link, {}"
+        self.get_item_query = ("SELECT title, mt.type_name, release_year, date_added, created_by, img_link, {} "
                                "FROM items i "
                                "JOIN {} sl ON i.id = sl.id"
                                "JOIN media_types mt ON mt.id = i.media_type "
                                "WHERE i.id = %s ")
+        
+        # Item Query Customizations are formatted into get_item_query to allow for specific joins based on the media type
+        self.iqc_album = "summary"
+        self.iqc_board_game = "maximum_players, minimum_players, summary, duration"
+        self.iqc_book = "isbn, printing_year"
+        self.iqc_movie = "lang, summary, duration"
+        self.iqc_rpg = "isbn, summary"
+        self.iqc_video_game = "summary"
         
         self.get_user_items_query = ("SELECT * FROM collection_items "
                     "INNER JOIN items ON collection_items.item_id = items.id AND collection_items.user_id = %s")
