@@ -4,7 +4,6 @@ from flask import request
 from Workers.MediaItemWorker import MediaItemWorker
 from Workers.UsersWorker import UsersWorker
 from Workers.ListWorker import ListWorker
-from Utilities.ValidateRequestInput import validate_put_request, validate_update_request
 import logging
 
 app = flask.Flask(__name__)
@@ -22,10 +21,17 @@ workers = init()
 
 @app.route('/', methods=['GET'])
 def health_check():
-    response = flask.jsonify("We're Good!")
-    response.status_code = 200
-    return response
+    return create_response(True, 200, ["Health Check Passed!"])
 
+def create_response(passed, status_code, data=[], err_msg=''):
+    response_object = {
+        'status': 'SUCCESS' if passed else 'FAILURE',
+        'data': data,
+        'err_msg': err_msg
+    }
+    response = flask.jsonify(response_object)
+    response.status_code = status_code
+    return response
 
 if __name__ == "__main__":
     app.run(host='0.0.0.0')

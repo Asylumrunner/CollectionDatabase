@@ -6,9 +6,7 @@ class MediaItemWorker(BaseWorker):
         super().__init__()
         self.add_item_query = ("INSERT INTO items "
                      "(title, media_type, release_year, created_by, img_link, original_api_id) "
-                     "SELECT m.id, %s, %s, %s, %s, %s "
-                     "FROM media_types m "
-                     "WHERE m.type_name = %s")
+                     "VALUES (%s, %s, %s, %s, %s, %s)")
         
         self.add_album_query = ("INSERT INTO albums "
                                 "(id, summary) "
@@ -61,14 +59,37 @@ class MediaItemWorker(BaseWorker):
         self.get_user_items_query = ("SELECT * FROM collection_items "
                     "INNER JOIN items ON collection_items.item_id = items.id AND collection_items.user_id = %s")
 
-    def add_item(self, user, item):
+    def add_item(self, item):
         response = {'passed': False}
+        cursor = self.database.cursor()
         try:
-            
+            cursor.execute(self.add_item_query, item['name'], self.media_type_mappings[item['media_type']], item['release_year'], item['created_by'], item['img_link'], item['original_api_id'])
+            generated_id = cursor._last_insert_id
+            match item['media_type']:
+                case "book":
+                    cursor.execute(self.add_book_query, generated_id, item['isbn'], item['printing_year'])
+                case "movie":
+                    cursor.execute(self.add_movie_query, generated_id, item['lang'], item['summary'], item['duration'])
+                case "video_game":
+                    cursor.execute(self.add_video_game_query, generated_id)
+                    # Do more logic to add platforms
+                case "board_game":
+                    cursor.execute(self.add_board_game_query, generated_id)
+                case "rpg":
+                    cursor.execute(self.add_rpg_query, generated_id)
+                case "anime":
+                    cursor.execute(self.add_anime_query, generated_id)
+                case "album":
+                    cursor.execute(self.add_album_query, generated_id)
+                case _:
+                    raise ValueError("Media type unexpected. Aborting insertion")
             response['passed'] = True
         except Exception as e:
             logging.error("Exception while retrieving items from database: {}".format(e))
             response['exception'] = str(e)
+            self.database.commit()
+        finally:
+            cursor.close()
         return response
 
     def get_user_items(self, user_id):

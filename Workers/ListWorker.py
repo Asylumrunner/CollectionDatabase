@@ -18,7 +18,7 @@ class ListWorker(BaseWorker):
                  "JOIN lists l on li.list_id = l.id"
                  "WHERE li.list_id = %s AND l.owner_id = %s ")
         
-        self.add_item_to_list_query ("INSERT INTO list_items "
+        self.add_item_to_list_query = ("INSERT INTO list_items "
                                      "(item_id, list_id) "
                                      "VALUES (%s %s)" )
         
