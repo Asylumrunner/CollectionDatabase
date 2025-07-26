@@ -48,3 +48,5 @@
 ## Caching
 * Set up a caching layer for expensive database operations
 
+## Testing
+* Set up `testing.mysqld` and enable a command-line option to spin up and connect to a mock MySQL instance rather than the real one
