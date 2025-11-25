@@ -4,6 +4,7 @@ from flask import request
 from Workers.MediaItemWorker import MediaItemWorker
 from Workers.UsersWorker import UsersWorker
 from Workers.ListWorker import ListWorker
+from Workers.SearchWorker import SearchWorker
 import logging
 
 app = flask.Flask(__name__)
@@ -13,6 +14,7 @@ CORS(app)
 def init():
     workers = {}
     workers['MEDIAITEMS'] = MediaItemWorker()
+    workers['SEARCH'] = SearchWorker()
     workers['USERS'] = UsersWorker()
     workers['LIST'] = ListWorker()
     return workers
@@ -22,6 +24,22 @@ workers = init()
 @app.route('/', methods=['GET'])
 def health_check():
     return create_response(True, 200, ["Health Check Passed!"])
+
+
+@app.route('/search/<title>', methods=['GET'])
+def lookup_data(title):
+    media_type = request.args.get("media_type")
+    logging.info(f'media_type provided with search request {media_type}')
+    if media_type == None:
+        logging.error("No media_type provided with request")
+        return create_response(False, 400, [], "No media_type provided with request")
+
+    lookup_response = workers['SEARCH'].search_item(title, media_type)
+
+    if not lookup_response['passed']:
+        return create_response(False, 500, [], lookup_response['exception'])
+    else:
+        return create_response(True, 200, lookup_response['items'])
 
 def create_response(passed, status_code, data=[], err_msg=''):
     response_object = {

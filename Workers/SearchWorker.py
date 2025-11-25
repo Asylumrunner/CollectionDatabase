@@ -49,10 +49,10 @@ class SearchWorker(BaseWorker):
             return self.lookup_movie(name)
         elif media_type == "video_game":
             return self.lookup_video_game(name)
-        elif media_type == "board_game":
-            return self.lookup_board_game(name)
-        elif media_type == "rpg":
-            return self.lookup_rpg(name)
+        # elif media_type == "board_game":
+        #     return self.lookup_board_game(name)
+        # elif media_type == "rpg":
+        #     return self.lookup_rpg(name)
         elif media_type == "anime":
             return self.lookup_anime(name)
         elif media_type == "music":
