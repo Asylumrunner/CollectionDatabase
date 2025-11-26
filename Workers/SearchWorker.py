@@ -1,6 +1,7 @@
 import pprint
 from .secrets import secrets
 from .BaseWorker import BaseWorker
+from DataClasses.item import Item
 from jikanpy import Jikan
 import xml.etree.ElementTree as ET
 import concurrent.futures
@@ -78,7 +79,10 @@ class SearchWorker(BaseWorker):
                 img_link = "https://covers.openlibrary.org/a/id/{}-M.jpg".format(book['cover_i']) if 'cover_i' in book else ''
                 created_by = getIfUseful(book, "author_name")
                 media_type = "book"
-                response["items"].append({'title': title, 'original_api_id': book['key'], 'isbn': isbn, 'release_year': release_year, 'printing_year': release_year, 'img_link': img_link, 'created_by': created_by, "media_type": media_type})
+                item = Item(
+                    book['key'], title, media_type, release_year, img_link, book['key'], created_by, isbn, release_year
+                )
+                response["items"].append(item)
             response["passed"] = True
         except Exception as e:
             logging.error("Exception in lookup for title {} in BookController: {}".format(title, e))
@@ -103,9 +107,11 @@ class SearchWorker(BaseWorker):
         summary = getIfUseful(movie, 'overview')
         duration = getIfUseful(movie, 'runtime')
         media_type = "movie"
+        item = Item(
+            movie_id, title, media_type, release_year, img_link, movie_id, directors, language=language, summary=summary, duration=duration
+        )
 
-        response = {'title': title, 'original_api_id': movie_id, 'release_year': release_year, 'created_by': directors, 'img_link': img_link, 'lang': language, 'summary': summary, 'total_duration': duration, "media_type": media_type}
-        return response
+        return item
     
     def lookup_movie(self, title):
         response = {"items": [], "passed": False}
@@ -139,7 +145,10 @@ class SearchWorker(BaseWorker):
                 release_year = getIfUseful(game, 'original_release_date', '')[:4]
                 media_type = "video_game"
                 guid = game['guid']
-                response['items'].append({'title': game_title, 'original_api_id': guid, 'img_link': img_link, 'created_by': developer, 'summary': summary, 'release_year': release_year, 'platforms': platforms, 'media_type': media_type})
+                item = Item(
+                    guid, game_title, media_type, release_year, img_link, guid, developer, summary=summary, platforms=platforms
+                )
+                response['items'].append(item)
             response["passed"] = True
         except Exception as e:
             logging.error("Exception in lookup for title {} in VideoGameController: {}".format(title, e))
@@ -230,16 +239,10 @@ class SearchWorker(BaseWorker):
         try:
             jikan_response = self.jikan_client.search("anime", title)
             for anime in jikan_response['data']:
-                response['items'].append({
-                    'title': anime.get('title_english'),
-                    'release_year': anime['aired']['prop']['from']['year'],
-                    'summary': anime.get('synopsis'),
-                    'img_link': anime['images']['jpg']['image_url'],
-                    'original_api_id': anime['mal_id'],
-                    'created_by': [studio['name'] for studio in anime['studios']],
-                    'episodes': anime['episodes'],
-                    'media_type': "anime"
-                })
+                item = Item(
+                    anime['mal_id'], anime.get('title_english'), "anime", anime['aired']['prop']['from']['year'], anime['images']['jpg']['image_url'], anime['mal_id'], [studio['name'] for studio in anime['studios']], summary=anime.get('synopsis'), episodes=anime['episodes']
+                )
+                response['items'].append(item)
             response['passed'] = True
         except Exception as e:
             logging.error("Exception in lookup for title {} in AnimeController: {}".format(title, e))

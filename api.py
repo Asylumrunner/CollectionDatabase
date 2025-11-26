@@ -1,9 +1,6 @@
 import flask
 from flask_cors import CORS
 from flask import request
-from Workers.MediaItemWorker import MediaItemWorker
-from Workers.UsersWorker import UsersWorker
-from Workers.ListWorker import ListWorker
 from Workers.SearchWorker import SearchWorker
 import logging
 
@@ -13,10 +10,7 @@ CORS(app)
 
 def init():
     workers = {}
-    workers['MEDIAITEMS'] = MediaItemWorker()
     workers['SEARCH'] = SearchWorker()
-    workers['USERS'] = UsersWorker()
-    workers['LIST'] = ListWorker()
     return workers
 
 workers = init()
