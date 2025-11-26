@@ -254,15 +254,10 @@ class SearchWorker(BaseWorker):
         try:
             results = requests.get(self.music_lookup_req_template.format(self.AUDIODB_API_KEY, artist)).json()
             for release in results['album']:
-                response['items'].append({
-                    'title': release.get('strAlbumStripped'),
-                    'img_link': release.get('strAlbumThumb'),
-                    'release_year': release.get('intYearReleased'),
-                    'created_by': release.get('strArtistStripped'),
-                    'original_api_id': release['idAlbum'],
-                    'summary': release.get('strDescriptionEN'),
-                    'media_type': 'music'
-                })
+                item = Item(
+                    release['idAlbum'], release.get('strAlbumStripped'), 'music', release.get('intYearReleased'), release.get('strAlbumThumb'), release['idAlbum'], release.get('strArtistStripped'), summary=release.get('strDescriptionEN')
+                )
+                response['items'].append(item)
             response['passed'] = True
         except Exception as e:
             logging.error("Exception in lookup for title {} in MusicController: {}".format(artist, e))
