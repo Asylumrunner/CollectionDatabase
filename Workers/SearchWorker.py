@@ -108,7 +108,7 @@ class SearchWorker(BaseWorker):
         duration = getIfUseful(movie, 'runtime')
         media_type = "movie"
         item = Item(
-            movie_id, title, media_type, release_year, img_link, movie_id, directors, language=language, summary=summary, duration=duration
+            movie_id, title, media_type, release_year, img_link, movie_id, directors, lang=language, summary=summary, duration=duration
         )
 
         return item
