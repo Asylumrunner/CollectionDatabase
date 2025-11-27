@@ -43,21 +43,21 @@ class SearchWorker(BaseWorker):
 
         super().__init__()
 
-    def search_item(self, name, media_type):
+    def search_item(self, name, media_type, pagination_key=None):
         if media_type == "book":
-            return self.lookup_book(name)
+            return self.lookup_book(name, pagination_key)
         elif media_type == "movie":
-            return self.lookup_movie(name)
+            return self.lookup_movie(name, pagination_key)
         elif media_type == "video_game":
-            return self.lookup_video_game(name)
+            return self.lookup_video_game(name, pagination_key)
         # elif media_type == "board_game":
         #     return self.lookup_board_game(name)
         # elif media_type == "rpg":
         #     return self.lookup_rpg(name)
         elif media_type == "anime":
-            return self.lookup_anime(name)
+            return self.lookup_anime(name, pagination_key)
         elif media_type == "music":
-            return self.lookup_music(name)
+            return self.lookup_music(name, pagination_key)
         else:
             logging.error("media_type passed to LookupWorker not recognized")
             return {
@@ -65,7 +65,7 @@ class SearchWorker(BaseWorker):
                 "exception": f'media_type {media_type} not recognized. Please use one of [book, movie, video_game, board_game, rpg, anime, music]'
             }
         
-    def lookup_book(self, title):
+    def lookup_book(self, title, pagination_key):
         try:
             formatted_title = title.replace(' ', '+')
             page_num = 1
@@ -113,7 +113,7 @@ class SearchWorker(BaseWorker):
 
         return item
     
-    def lookup_movie(self, title):
+    def lookup_movie(self, title, pagination_key):
         response = {"items": [], "passed": False}
         try:
             req = requests.get(self.movie_lookup_req_template.format(self.MDB_API_KEY, title))
@@ -130,7 +130,7 @@ class SearchWorker(BaseWorker):
             response["exception"] = str(e)
         return response
 
-    def lookup_video_game(self, title):
+    def lookup_video_game(self, title, pagination_key):
         response = {"items": [], "passed": False}
         try:
             req = requests.get(self.vg_lookup_req_template.format(self.GB_API_KEY, title), headers=self.header).json()
@@ -234,7 +234,7 @@ class SearchWorker(BaseWorker):
         else:
             return {}
     
-    def lookup_anime(self, title):
+    def lookup_anime(self, title, pagination_key):
         response = {"items": [], "passed": False}
         try:
             jikan_response = self.jikan_client.search("anime", title)
@@ -249,7 +249,7 @@ class SearchWorker(BaseWorker):
             response["exception"] = str(e)
         return response
     
-    def lookup_music(self, artist):
+    def lookup_music(self, artist, pagination_key):
         response = {"items": [], "passed": False}
         try:
             results = requests.get(self.music_lookup_req_template.format(self.AUDIODB_API_KEY, artist)).json()

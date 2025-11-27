@@ -23,12 +23,13 @@ def health_check():
 @app.route('/search/<title>', methods=['GET'])
 def lookup_data(title):
     media_type = request.args.get("media_type")
+    pagination_key = request.args.get("page", None)
     logging.info(f'media_type provided with search request {media_type}')
     if media_type == None:
         logging.error("No media_type provided with request")
         return create_response(False, 400, [], "No media_type provided with request")
 
-    lookup_response = workers['SEARCH'].search_item(title, media_type)
+    lookup_response = workers['SEARCH'].search_item(title, media_type, pagination_key)
 
     if not lookup_response['passed']:
         return create_response(False, 500, [], lookup_response['exception'])
