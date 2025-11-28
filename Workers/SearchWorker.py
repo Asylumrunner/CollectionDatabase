@@ -84,7 +84,7 @@ class SearchWorker(BaseWorker):
                 )
                 response["items"].append(item)
             response["passed"] = True
-            response["next_page"] = pagination_key + 1
+            response["next_page"] = int(pagination_key) + 1
         except Exception as e:
             logging.error("Exception in lookup for title {} in BookController: {}".format(title, e))
             response["exception"] = str(e)
@@ -126,7 +126,7 @@ class SearchWorker(BaseWorker):
                 response['items'].append(lookup)
             
             response["passed"] = True
-            response["next_page"] = pagination_key + 1
+            response["next_page"] = int(pagination_key) + 1
         except Exception as e:
             logging.error("Exception in lookup for title {} in MovieController: {}".format(title, e))
             response["exception"] = str(e)
@@ -152,7 +152,7 @@ class SearchWorker(BaseWorker):
                 )
                 response['items'].append(item)
             response["passed"] = True
-            response['next_page'] = pagination_key + 1
+            response['next_page'] = int(pagination_key) + 1
         except Exception as e:
             logging.error("Exception in lookup for title {} in VideoGameController: {}".format(title, e))
             response["exception"] = str(e)
@@ -254,6 +254,7 @@ class SearchWorker(BaseWorker):
                     episodes=anime['episodes']
                 )
                 response['items'].append(item)
+            response['next_page'] = int(pagination_key) + 1
             response['passed'] = True
         except Exception as e:
             logging.error("Exception in lookup for title {} in AnimeController: {}".format(title, e))

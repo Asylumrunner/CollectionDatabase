@@ -32,15 +32,16 @@ def lookup_data(title):
     lookup_response = workers['SEARCH'].search_item(title, media_type, pagination_key)
 
     if not lookup_response['passed']:
-        return create_response(False, 500, [], lookup_response['exception'])
+        return create_response(False, 500, [], pagination_key, lookup_response['exception'])
     else:
-        return create_response(True, 200, lookup_response['items'])
+        return create_response(True, 200, lookup_response['next_page'], lookup_response['items'])
 
-def create_response(passed, status_code, data=[], err_msg=''):
+def create_response(passed, status_code, page, data=[], err_msg=''):
     response_object = {
         'status': 'SUCCESS' if passed else 'FAILURE',
         'data': data,
-        'err_msg': err_msg
+        'err_msg': err_msg,
+        'next_page': page
     }
     response = flask.jsonify(response_object)
     response.status_code = status_code
