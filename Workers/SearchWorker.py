@@ -23,7 +23,7 @@ class SearchWorker(BaseWorker):
 
         # Used for Movie Lookup
         self.MDB_API_KEY = secrets['MovieDB_Key']
-        self.movie_lookup_req_template = "https://api.themoviedb.org/3/search/movie?api_key={}&query={}&include_adult=true"
+        self.movie_lookup_req_template = "https://api.themoviedb.org/3/search/movie?api_key={}&query={}&page={}include_adult=true"
         self.movie_lookup_template = "https://api.themoviedb.org/3/movie/{}?api_key={}"
         self.movie_credits_lookup_template = "https://api.themoviedb.org/3/movie/{}/credits?api_key={}"
 
@@ -38,12 +38,13 @@ class SearchWorker(BaseWorker):
         # Used for Video Game Lookup
         self.GB_API_KEY = secrets['Giant_Bomb_API_Key']
         self.header = {'User-Agent': 'Asylumrunner_Database_Tool'}
-        self.vg_lookup_req_template = "http://www.giantbomb.com/api/search/?api_key={}&format=json&query=%22{}%22&resources=game"
+        self.vg_lookup_req_template = "http://www.giantbomb.com/api/search/?api_key={}&format=json&query=%22{}%22&resources=game&page={}"
         self.game_key_req_template = "https://www.giantbomb.com/api/game/{}/?api_key={}&format=json"
 
         super().__init__()
 
     def search_item(self, name, media_type, pagination_key=None):
+        pagination_key = pagination_key if pagination_key else 1
         if media_type == "book":
             return self.lookup_book(name, pagination_key)
         elif media_type == "movie":
@@ -68,8 +69,7 @@ class SearchWorker(BaseWorker):
     def lookup_book(self, title, pagination_key):
         try:
             formatted_title = title.replace(' ', '+')
-            page_num = 1
-            openLibResponse = requests.get(self.book_lookup_req_template.format(formatted_title, page_num)).json()
+            openLibResponse = requests.get(self.book_lookup_req_template.format(formatted_title, pagination_key)).json()
             response = {"items": [], "passed": False}
             
             for book in openLibResponse["docs"]:
@@ -84,6 +84,7 @@ class SearchWorker(BaseWorker):
                 )
                 response["items"].append(item)
             response["passed"] = True
+            response["next_page"] = pagination_key + 1
         except Exception as e:
             logging.error("Exception in lookup for title {} in BookController: {}".format(title, e))
             response["exception"] = str(e)
@@ -116,7 +117,7 @@ class SearchWorker(BaseWorker):
     def lookup_movie(self, title, pagination_key):
         response = {"items": [], "passed": False}
         try:
-            req = requests.get(self.movie_lookup_req_template.format(self.MDB_API_KEY, title))
+            req = requests.get(self.movie_lookup_req_template.format(self.MDB_API_KEY, title, pagination_key))
 
             with concurrent.futures.ThreadPoolExecutor() as executor:
                 lookups = executor.map(self.movie_lookup, [result['id'] for result in req.json()['results']])
@@ -125,6 +126,7 @@ class SearchWorker(BaseWorker):
                 response['items'].append(lookup)
             
             response["passed"] = True
+            response["next_page"] = pagination_key + 1
         except Exception as e:
             logging.error("Exception in lookup for title {} in MovieController: {}".format(title, e))
             response["exception"] = str(e)
@@ -133,7 +135,7 @@ class SearchWorker(BaseWorker):
     def lookup_video_game(self, title, pagination_key):
         response = {"items": [], "passed": False}
         try:
-            req = requests.get(self.vg_lookup_req_template.format(self.GB_API_KEY, title), headers=self.header).json()
+            req = requests.get(self.vg_lookup_req_template.format(self.GB_API_KEY, title, pagination_key), headers=self.header).json()
             for game in req['results']:
                 game_details = benedict(requests.get(self.game_key_req_template.format(game['guid'], self.GB_API_KEY), headers=self.header).json())
                 developer = game_details['results.developers[0].name'] if 'results.developers[0].name' in game_details else ""
@@ -150,6 +152,7 @@ class SearchWorker(BaseWorker):
                 )
                 response['items'].append(item)
             response["passed"] = True
+            response['next_page'] = pagination_key + 1
         except Exception as e:
             logging.error("Exception in lookup for title {} in VideoGameController: {}".format(title, e))
             response["exception"] = str(e)
@@ -237,10 +240,18 @@ class SearchWorker(BaseWorker):
     def lookup_anime(self, title, pagination_key):
         response = {"items": [], "passed": False}
         try:
-            jikan_response = self.jikan_client.search("anime", title)
+            jikan_response = self.jikan_client.search("anime", title, pagination_key)
             for anime in jikan_response['data']:
                 item = Item(
-                    anime['mal_id'], anime.get('title_english'), "anime", anime['aired']['prop']['from']['year'], anime['images']['jpg']['image_url'], anime['mal_id'], [studio['name'] for studio in anime['studios']], summary=anime.get('synopsis'), episodes=anime['episodes']
+                    anime['mal_id'], 
+                    anime.get('title_english'), 
+                    "anime", 
+                    anime['aired']['prop']['from']['year'], 
+                    anime['images']['jpg']['image_url'], 
+                    anime['mal_id'], 
+                    [studio['name'] for studio in anime['studios']], 
+                    summary=anime.get('synopsis'), 
+                    episodes=anime['episodes']
                 )
                 response['items'].append(item)
             response['passed'] = True
@@ -255,9 +266,17 @@ class SearchWorker(BaseWorker):
             results = requests.get(self.music_lookup_req_template.format(self.AUDIODB_API_KEY, artist)).json()
             for release in results['album']:
                 item = Item(
-                    release['idAlbum'], release.get('strAlbumStripped'), 'music', release.get('intYearReleased'), release.get('strAlbumThumb'), release['idAlbum'], release.get('strArtistStripped'), summary=release.get('strDescriptionEN')
+                    release['idAlbum'], 
+                    release.get('strAlbumStripped'), 
+                    'music', 
+                    release.get('intYearReleased'), 
+                    release.get('strAlbumThumb'), 
+                    release['idAlbum'], 
+                    release.get('strArtistStripped'), 
+                    summary=release.get('strDescriptionEN')
                 )
                 response['items'].append(item)
+            response['next_page'] = pagination_key
             response['passed'] = True
         except Exception as e:
             logging.error("Exception in lookup for title {} in MusicController: {}".format(artist, e))
