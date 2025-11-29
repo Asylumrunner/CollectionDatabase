@@ -15,8 +15,9 @@ class SearchWorker(BaseWorker):
         self.jikan_client = Jikan()
 
         # Used for Board Game Lookup
-        self.bg_lookup_req_template = "https://www.boardgamegeek.com/xmlapi2/search?query={}&type=boardgame"
-        self.bg_individual_item_template = "https://www.boardgamegeek.com/xmlapi2/thing?id={}"
+        self.bg_lookup_req_template = "https://boardgamegeek.com/xmlapi2/search?query={}&type=boardgame"
+        self.bg_individual_item_template = "https://boardgamegeek.com/xmlapi2/thing?id={}"
+        self.bgg_header = {'Authorization': "Bearer {}".format(secrets['BGG_API_Key'])}
 
         # Used for Book Lookup
         self.book_lookup_req_template = "https://openlibrary.org/search.json?q={}&page={}&fields=key,title,author_name,cover_i,first_publish_year,editions,editions.isbn,editions.publish_date"
@@ -32,8 +33,8 @@ class SearchWorker(BaseWorker):
         self.music_lookup_req_template = "https://www.theaudiodb.com/api/v1/json/{}/searchalbum.php?s={}"
 
         # Used for RPG Lookup
-        self.rpg_lookup_req_template = "https://www.rpggeek.com/xmlapi2/search?query={}&type=rpgitem"
-        self.rpg_individual_item_template = "https://www.rpggeek.com/xmlapi2/thing?id={}"
+        self.rpg_lookup_req_template = "https://rpggeek.com/xmlapi2/search?query={}&type=rpgitem"
+        self.rpg_individual_item_template = "https://rpggeek.com/xmlapi2/thing?id={}"
 
         # Used for Video Game Lookup
         self.GB_API_KEY = secrets['Giant_Bomb_API_Key']
@@ -51,10 +52,10 @@ class SearchWorker(BaseWorker):
             return self.lookup_movie(name, pagination_key)
         elif media_type == "video_game":
             return self.lookup_video_game(name, pagination_key)
-        # elif media_type == "board_game":
-        #     return self.lookup_board_game(name)
-        # elif media_type == "rpg":
-        #     return self.lookup_rpg(name)
+        elif media_type == "board_game":
+            return self.lookup_board_game(name, pagination_key)
+        elif media_type == "rpg":
+            return self.lookup_rpg(name, pagination_key)
         elif media_type == "anime":
             return self.lookup_anime(name, pagination_key)
         elif media_type == "music":
@@ -158,10 +159,10 @@ class SearchWorker(BaseWorker):
             response["exception"] = str(e)
         return response
     
-    def lookup_board_game(self, title):
+    def lookup_board_game(self, title, pagination_key):
         response = {"items": [], "passed": False}
         try:
-            req = requests.get(self.bg_lookup_req_template.format(title))
+            req = requests.get(self.bg_lookup_req_template.format(title), headers=self.bgg_header)
             root = ET.fromstring(req.content)
             
             with concurrent.futures.ThreadPoolExecutor() as executor:
@@ -170,7 +171,7 @@ class SearchWorker(BaseWorker):
             for lookup in lookups:
                 if lookup:
                     response['items'].append(lookup)
-            
+            response['next_page'] = int(pagination_key) + 1
             response["passed"] = True
         except Exception as e:
             logging.error("Exception in lookup for title {} in BoardGameController: {}".format(title, e))
@@ -180,29 +181,28 @@ class SearchWorker(BaseWorker):
     def board_game_detail_lookup(self, child):
         item_dict = {}
         guid = child.get('id', '00000')
-        item_search_req = requests.get(self.bg_individual_item_template.format(guid))
+        item_search_req = requests.get(self.bg_individual_item_template.format(guid), headers=self.bgg_header)
         search_root = ET.fromstring(item_search_req.content).find('./item')
         if search_root:
             names = [name.get('value') for name in search_root.iterfind('name') if name.get('type') == 'primary']
-            item_dict['title'] = names[0]
-            item_dict['img_link'] = search_root.find('./image').text if search_root.find('./image') is not None else None
+            title = names[0]
+            img_link = search_root.find('./image').text if search_root.find('./image') is not None else None
             designers = [designer.get('value', 'unknown') for designer in search_root.iterfind('link') if designer.get('type') == 'boardgamedesigner']
-            item_dict['created_by'] = designers
-            item_dict['original_api_id'] = guid
-            item_dict['minimum_players'] = search_root.find('./minplayers').get('value')
-            item_dict['maximum_players'] = search_root.find('./maxplayers').get('value')
-            item_dict['year_published'] = search_root.find('./yearpublished').get('value')
-            item_dict['summary'] = search_root.find('./description').text
-            item_dict['total_duration'] = search_root.find('./playingtime').get('value')
-            item_dict['media_type'] = "board_game"
-            return item_dict
+            minimum_players = search_root.find('./minplayers').get('value')
+            maximum_players = search_root.find('./maxplayers').get('value')
+            year_published = search_root.find('./yearpublished').get('value')
+            summary = search_root.find('./description').text
+            total_duration = search_root.find('./playingtime').get('value')
+            media_type = "board_game"
+            item = Item(guid, title, media_type, year_published, img_link, guid, designers, summary=summary, duration=total_duration, min_players=minimum_players, max_players=maximum_players)
+            return item
         else:
             return {}
     
-    def lookup_rpg(self, title):
+    def lookup_rpg(self, title, pagination_key):
         response = {"items": [], "passed": False}
         try:
-            req = requests.get(self.rpg_lookup_req_template.format(title))
+            req = requests.get(self.rpg_lookup_req_template.format(title), headers=self.bgg_header)
             root = ET.fromstring(req.content)
 
             with concurrent.futures.ThreadPoolExecutor() as executor:
@@ -212,6 +212,7 @@ class SearchWorker(BaseWorker):
                 if lookup:
                     response["items"].append(lookup)
             
+            response['next_page'] = int(pagination_key) + 1
             response['passed'] = True
         except Exception as e:
             logging.error("Exception in lookup for title {} in RPGController: {}".format(title, e))
@@ -221,7 +222,7 @@ class SearchWorker(BaseWorker):
     def rpg_detail_lookup(self, child):
         item_dict = {}
         guid = child.get('id', '00000')
-        item_search_req = requests.get(self.rpg_individual_item_template.format(guid))
+        item_search_req = requests.get(self.rpg_individual_item_template.format(guid), headers=self.bgg_header)
         search_root = ET.fromstring(item_search_req.content).find('./item')
         if search_root:
             names = [name.get('value', 'ERROR') for name in search_root.iterfind('name') if name.get('type', 'alternate') == 'primary']
