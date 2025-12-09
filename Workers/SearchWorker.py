@@ -8,6 +8,7 @@ import concurrent.futures
 import logging
 import requests
 from benedict import benedict
+from datetime import datetime
 
 class SearchWorker(BaseWorker):
     def __init__(self):
@@ -42,7 +43,17 @@ class SearchWorker(BaseWorker):
         self.vg_lookup_req_template = "http://www.giantbomb.com/api/search/?api_key={}&format=json&query=%22{}%22&resources=game&page={}"
         self.game_key_req_template = "https://www.giantbomb.com/api/game/{}/?api_key={}&format=json"
 
+        self.IGDB_Client_ID = secrets['IGDB_Client_ID']
+        self.IGDB_Client_Secret = secrets['IGDB_Client_Secret']
+        self.get_IGDB_Access_Token()
+
         super().__init__()
+
+    def get_IGDB_Access_Token(self):
+        access_token_response = requests.post("https://id.twitch.tv/oauth2/token?client_id={}&client_secret={}&grant_type=client_credentials".format(self.IGDB_Client_ID, self.IGDB_Client_Secret)).json()
+        self.IGDB_Access_Token = access_token_response['access_token']
+        self.IGDB_Token_Last_Set = datetime.now()
+        self.IGDB_Time_Until_Token_Refresh = access_token_response['expires_in']
 
     def search_item(self, name, media_type, pagination_key=None):
         pagination_key = pagination_key if pagination_key else 1
