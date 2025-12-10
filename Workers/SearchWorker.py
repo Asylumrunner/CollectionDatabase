@@ -38,13 +38,10 @@ class SearchWorker(BaseWorker):
         self.rpg_individual_item_template = "https://rpggeek.com/xmlapi2/thing?id={}"
 
         # Used for Video Game Lookup
-        self.GB_API_KEY = secrets['Giant_Bomb_API_Key']
-        self.header = {'User-Agent': 'Asylumrunner_Database_Tool'}
-        self.vg_lookup_req_template = "http://www.giantbomb.com/api/search/?api_key={}&format=json&query=%22{}%22&resources=game&page={}"
-        self.game_key_req_template = "https://www.giantbomb.com/api/game/{}/?api_key={}&format=json"
-
         self.IGDB_Client_ID = secrets['IGDB_Client_ID']
         self.IGDB_Client_Secret = secrets['IGDB_Client_Secret']
+        self.vg_lookup_req_template = "https://api.igdb.com/v4/games"
+        self.vg_lookup_req_body = "search \"{}\"; limit 25; offset {};fields artworks,cover.image_id,created_at,first_release_date,involved_companies.company.name,language_supports,name,platforms.name,ports,status,summary;"
         self.get_IGDB_Access_Token()
 
         super().__init__()
@@ -54,6 +51,11 @@ class SearchWorker(BaseWorker):
         self.IGDB_Access_Token = access_token_response['access_token']
         self.IGDB_Token_Last_Set = datetime.now()
         self.IGDB_Time_Until_Token_Refresh = access_token_response['expires_in']
+
+        self.IGDB_headers = {
+            "Client-ID": self.IGDB_Client_ID,
+            "Authorization": f"Bearer {self.IGDB_Access_Token}",
+        }
 
     def search_item(self, name, media_type, pagination_key=None):
         pagination_key = pagination_key if pagination_key else 1
@@ -147,24 +149,22 @@ class SearchWorker(BaseWorker):
     def lookup_video_game(self, title, pagination_key):
         response = {"items": [], "passed": False}
         try:
-            req = requests.get(self.vg_lookup_req_template.format(self.GB_API_KEY, title, pagination_key), headers=self.header).json()
-            for game in req['results']:
-                game_details = benedict(requests.get(self.game_key_req_template.format(game['guid'], self.GB_API_KEY), headers=self.header).json())
-                developer = game_details['results.developers[0].name'] if 'results.developers[0].name' in game_details else ""
-                platform_objs = getIfUseful(game, 'platforms', [])
-                platforms = [getIfUseful(platform, 'name') for platform in platform_objs]
-                game_title = getIfUseful(game, 'name')
-                img_link = getIfUseful(game, 'image', {}).get('medium_url')
-                summary = getIfUseful(game, 'deck')
-                release_year = getIfUseful(game, 'original_release_date', '')[:4]
+            req = requests.post(self.vg_lookup_req_template, data=self.vg_lookup_req_body.format(title, (int(pagination_key)-1) * 25), headers=self.IGDB_headers).json()
+            for game in req:
+                guid = game["id"]
+                game_title = game["name"]
                 media_type = "video_game"
-                guid = game['guid']
+                release_year = datetime.fromtimestamp(game.get('first_release_date', 0)).year
+                img_link = game.get("cover", {"image_id": ""})["image_id"]
+                developer = [company["company"]["name"] for company in game.get("involved_companies", [])]
+                summary = game.get("summary", "")
+                platforms = [platform["name"] for platform in game.get("platforms", [])]
                 item = Item(
                     guid, game_title, media_type, release_year, img_link, guid, developer, summary=summary, platforms=platforms
                 )
                 response['items'].append(item)
-            response["passed"] = True
             response['next_page'] = int(pagination_key) + 1
+            response["passed"] = True
         except Exception as e:
             logging.error("Exception in lookup for title {} in VideoGameController: {}".format(title, e))
             response["exception"] = str(e)
