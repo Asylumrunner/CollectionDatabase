@@ -29,7 +29,15 @@ def lookup_data(title):
         logging.error("No media_type provided with request")
         return create_response(False, 400, [], "No media_type provided with request")
 
-    lookup_response = workers['SEARCH'].search_item(title, media_type, pagination_key)
+    # Collect all query params except media_type and page as search filter options
+    search_options = {}
+    for key, value in request.args.items():
+        if key not in ['media_type', 'page']:
+            search_options[key] = value
+
+    logging.info(f'Search options collected: {search_options}')
+
+    lookup_response = workers['SEARCH'].search_item(title, media_type, pagination_key, search_options)
 
     if not lookup_response['passed']:
         return create_response(False, 500, [], pagination_key, lookup_response['exception'])
