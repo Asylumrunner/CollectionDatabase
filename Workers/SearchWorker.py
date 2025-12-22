@@ -9,6 +9,8 @@ import logging
 import requests
 from benedict import benedict
 from datetime import datetime
+import traceback
+import sys
 
 class SearchWorker(BaseWorker):
     def __init__(self):
@@ -57,6 +59,28 @@ class SearchWorker(BaseWorker):
             "Authorization": f"Bearer {self.IGDB_Access_Token}",
         }
 
+    def _build_exception_dict(self, exception, context_info):
+        """
+        Build a comprehensive exception dictionary for debugging.
+
+        Args:
+            exception: The caught exception object
+            context_info: Dict with context like function_name, title, media_type, etc.
+
+        Returns:
+            Dict containing detailed exception information
+        """
+        exc_type, exc_value, exc_traceback = sys.exc_info()
+
+        return {
+            "error_type": type(exception).__name__,
+            "error_message": str(exception),
+            "traceback": traceback.format_exc(),
+            "traceback_lines": traceback.format_tb(exc_traceback),
+            "context": context_info,
+            "exception_args": exception.args if hasattr(exception, 'args') else None
+        }
+
     def search_item(self, name, media_type, pagination_key=None, search_options=None):
         pagination_key = pagination_key if pagination_key else 1
         search_options = search_options if search_options else {}
@@ -81,12 +105,49 @@ class SearchWorker(BaseWorker):
                 "exception": f'media_type {media_type} not recognized. Please use one of [book, movie, video_game, board_game, rpg, anime, music]'
             }
         
-    def lookup_book(self, title, pagination_key, search_options=None):
-        search_options = search_options if search_options else {}
+    def lookup_book(self, title, pagination_key, search_options={}):
+        response = {"items": [], "passed": False}
         try:
-            formatted_title = title.replace(' ', '+')
-            openLibResponse = requests.get(self.book_lookup_req_template.format(formatted_title, pagination_key)).json()
-            response = {"items": [], "passed": False}
+            # Build the search query - all filters go into the 'q' parameter
+            query_parts = [title]
+
+            # Add direct search filters to query
+            recognized_params = [
+                'author', 'subject', 'place', 'person', 'language',
+                'publisher', 'edition_count', 'author_key'
+            ]
+
+            for param in recognized_params:
+                if param in search_options:
+                    query_parts.append(f"{param}:{search_options[param]}")
+
+            # Handle range parameters that need special formatting
+            # publish_year: [earliest_publish_year TO latest_publish_year]
+            if 'earliest_publish_year' in search_options or 'latest_publish_year' in search_options:
+                earliest = search_options.get('earliest_publish_year', '*')
+                latest = search_options.get('latest_publish_year', '*')
+                query_parts.append(f"publish_year:[{earliest} TO {latest}]")
+
+            # first_publish_year: [earliest_first_publish_year TO latest_first_publish_year]
+            if 'earliest_first_publish_year' in search_options or 'latest_first_publish_year' in search_options:
+                earliest = search_options.get('earliest_first_publish_year', '*')
+                latest = search_options.get('latest_first_publish_year', '*')
+                query_parts.append(f"first_publish_year:[{earliest} TO {latest}]")
+
+            # number_of_pages: [min_number_of_pages TO max_number_of_pages]
+            if 'min_number_of_pages' in search_options or 'max_number_of_pages' in search_options:
+                min_pages = search_options.get('min_number_of_pages', '*')
+                max_pages = search_options.get('max_number_of_pages', '*')
+                query_parts.append(f"number_of_pages:[{min_pages} TO {max_pages}]")
+
+            # Combine all query parts with AND
+            full_query = ' AND '.join(query_parts)
+
+            # Construct the URL with the combined query
+            base_url = self.book_lookup_req_template.format(full_query, pagination_key)
+
+            req = requests.get(base_url)
+            openLibResponse = req.json()
 
             for book in openLibResponse["docs"]:
                 title = getIfUseful(book, 'title')
@@ -103,7 +164,15 @@ class SearchWorker(BaseWorker):
             response["next_page"] = int(pagination_key) + 1
         except Exception as e:
             logging.error("Exception in lookup for title {} in BookController: {}".format(title, e))
-            response["exception"] = str(e)
+            response["exception"] = self._build_exception_dict(e, {
+                "function": "lookup_book",
+                "title": title,
+                "pagination_key": pagination_key,
+                "search_options": search_options,
+                "url": req.url if 'req' in locals() else None,
+                "response_status": req.status_code if 'req' in locals() else None,
+                "response_text": req.text[:500] if 'req' in locals() else None
+            })
         return response
     
     def movie_lookup(self, guid):
@@ -146,7 +215,12 @@ class SearchWorker(BaseWorker):
             response["next_page"] = int(pagination_key) + 1
         except Exception as e:
             logging.error("Exception in lookup for title {} in MovieController: {}".format(title, e))
-            response["exception"] = str(e)
+            response["exception"] = self._build_exception_dict(e, {
+                "function": "lookup_movie",
+                "title": title,
+                "pagination_key": pagination_key,
+                "search_options": search_options
+            })
         return response
 
     def lookup_video_game(self, title, pagination_key, search_options=None):
@@ -171,7 +245,12 @@ class SearchWorker(BaseWorker):
             response["passed"] = True
         except Exception as e:
             logging.error("Exception in lookup for title {} in VideoGameController: {}".format(title, e))
-            response["exception"] = str(e)
+            response["exception"] = self._build_exception_dict(e, {
+                "function": "lookup_video_game",
+                "title": title,
+                "pagination_key": pagination_key,
+                "search_options": search_options
+            })
         return response
     
     def lookup_board_game(self, title, pagination_key, search_options=None):
@@ -191,7 +270,12 @@ class SearchWorker(BaseWorker):
             response["passed"] = True
         except Exception as e:
             logging.error("Exception in lookup for title {} in BoardGameController: {}".format(title, e))
-            response["exception"] = str(e)
+            response["exception"] = self._build_exception_dict(e, {
+                "function": "lookup_board_game",
+                "title": title,
+                "pagination_key": pagination_key,
+                "search_options": search_options
+            })
         return response
 
     def board_game_detail_lookup(self, child):
@@ -233,7 +317,12 @@ class SearchWorker(BaseWorker):
             response['passed'] = True
         except Exception as e:
             logging.error("Exception in lookup for title {} in RPGController: {}".format(title, e))
-            response["exception"] = str(e)
+            response["exception"] = self._build_exception_dict(e, {
+                "function": "lookup_rpg",
+                "title": title,
+                "pagination_key": pagination_key,
+                "search_options": search_options
+            })
         return response
 
     def rpg_detail_lookup(self, child):
@@ -260,24 +349,30 @@ class SearchWorker(BaseWorker):
         response = {"items": [], "passed": False}
         try:
             jikan_response = self.jikan_client.search("anime", title, pagination_key)
-            for anime in jikan_response['data']:
-                item = Item(
-                    anime['mal_id'],
-                    anime.get('title_english'),
-                    "anime",
-                    anime['aired']['prop']['from']['year'],
-                    anime['images']['jpg']['image_url'],
-                    anime['mal_id'],
-                    [studio['name'] for studio in anime['studios']],
-                    summary=anime.get('synopsis'),
-                    episodes=anime['episodes']
-                )
-                response['items'].append(item)
+            if jikan_response['data']:
+                for anime in jikan_response['data']:
+                    item = Item(
+                        anime['mal_id'],
+                        anime.get('title_english'),
+                        "anime",
+                        anime['aired']['prop']['from']['year'],
+                        anime['images']['jpg']['image_url'],
+                        anime['mal_id'],
+                        [studio['name'] for studio in anime['studios']],
+                        summary=anime.get('synopsis'),
+                        episodes=anime['episodes']
+                    )
+                    response['items'].append(item)
             response['next_page'] = int(pagination_key) + 1
             response['passed'] = True
         except Exception as e:
             logging.error("Exception in lookup for title {} in AnimeController: {}".format(title, e))
-            response["exception"] = str(e)
+            response["exception"] = self._build_exception_dict(e, {
+                "function": "lookup_anime",
+                "title": title,
+                "pagination_key": pagination_key,
+                "search_options": search_options
+            })
         return response
     
     def lookup_music(self, artist, pagination_key, search_options=None):
@@ -285,23 +380,29 @@ class SearchWorker(BaseWorker):
         response = {"items": [], "passed": False}
         try:
             results = requests.get(self.music_lookup_req_template.format(self.AUDIODB_API_KEY, artist)).json()
-            for release in results['album']:
-                item = Item(
-                    release['idAlbum'],
-                    release.get('strAlbumStripped'),
-                    'music',
-                    release.get('intYearReleased'),
-                    release.get('strAlbumThumb'),
-                    release['idAlbum'],
-                    release.get('strArtistStripped'),
-                    summary=release.get('strDescriptionEN')
-                )
-                response['items'].append(item)
+            if results['album']:
+                for release in results['album']:
+                    item = Item(
+                        release['idAlbum'],
+                        release.get('strAlbumStripped'),
+                        'music',
+                        release.get('intYearReleased'),
+                        release.get('strAlbumThumb'),
+                        release['idAlbum'],
+                        release.get('strArtistStripped'),
+                        summary=release.get('strDescriptionEN')
+                    )
+                    response['items'].append(item)
             response['next_page'] = pagination_key
             response['passed'] = True
         except Exception as e:
             logging.error("Exception in lookup for title {} in MusicController: {}".format(artist, e))
-            response["exception"] = str(e)
+            response["exception"] = self._build_exception_dict(e, {
+                "function": "lookup_music",
+                "artist": artist,
+                "pagination_key": pagination_key,
+                "search_options": search_options
+            })
         return response
 
 # Utility function to save some readability
