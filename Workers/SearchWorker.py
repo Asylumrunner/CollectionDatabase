@@ -27,7 +27,7 @@ class SearchWorker(BaseWorker):
 
         # Used for Movie Lookup
         self.MDB_API_KEY = secrets['MovieDB_Key']
-        self.movie_lookup_req_template = "https://api.themoviedb.org/3/search/movie?api_key={}&query={}&page={}include_adult=true"
+        self.movie_lookup_req_template = "https://api.themoviedb.org/3/search/movie?api_key={}&query={}&page={}"
         self.movie_lookup_template = "https://api.themoviedb.org/3/movie/{}?api_key={}"
         self.movie_credits_lookup_template = "https://api.themoviedb.org/3/movie/{}/credits?api_key={}"
 
@@ -60,17 +60,7 @@ class SearchWorker(BaseWorker):
         }
 
     def _build_exception_dict(self, exception, context_info):
-        """
-        Build a comprehensive exception dictionary for debugging.
-
-        Args:
-            exception: The caught exception object
-            context_info: Dict with context like function_name, title, media_type, etc.
-
-        Returns:
-            Dict containing detailed exception information
-        """
-        exc_type, exc_value, exc_traceback = sys.exc_info()
+        _exc_type, _exc_value, exc_traceback = sys.exc_info()
 
         return {
             "error_type": type(exception).__name__,
@@ -203,7 +193,20 @@ class SearchWorker(BaseWorker):
         search_options = search_options if search_options else {}
         response = {"items": [], "passed": False}
         try:
-            req = requests.get(self.movie_lookup_req_template.format(self.MDB_API_KEY, title, pagination_key))
+            # Build base URL with required parameters
+            url = self.movie_lookup_req_template.format(self.MDB_API_KEY, title, pagination_key)
+
+            # Add optional search parameters
+            # TMDB API available options: include_adult, language, primary_release_year, region, year
+            recognized_params = [
+                'include_adult', 'language', 'primary_release_year', 'region', 'year'
+            ]
+
+            for param in recognized_params:
+                if param in search_options:
+                    url += f"&{param}={search_options[param]}"
+
+            req = requests.get(url)
 
             with concurrent.futures.ThreadPoolExecutor() as executor:
                 lookups = executor.map(self.movie_lookup, [result['id'] for result in req.json()['results']])
@@ -219,7 +222,10 @@ class SearchWorker(BaseWorker):
                 "function": "lookup_movie",
                 "title": title,
                 "pagination_key": pagination_key,
-                "search_options": search_options
+                "search_options": search_options,
+                "url": url if 'url' in locals() else None,
+                "response_status": req.status_code if 'req' in locals() else None,
+                "response_text": req.text[:500] if 'req' in locals() else None
             })
         return response
 
