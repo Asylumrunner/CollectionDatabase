@@ -391,7 +391,26 @@ class SearchWorker(BaseWorker):
         search_options = search_options if search_options else {}
         response = {"items": [], "passed": False}
         try:
-            jikan_response = self.jikan_client.search("anime", title, pagination_key)
+            # Build parameters dict for Jikan API
+            # Jikan API available options: type, status, rating, genre, score, sfw, order_by, sort,
+            # min_score, max_score, start_date, end_date, genres, genres_exclude, producers, etc.
+            recognized_params = [
+                'type', 'status', 'rating', 'genre', 'score', 'sfw',
+                'order_by', 'sort', 'min_score', 'max_score', 'start_date',
+                'end_date', 'genres', 'genres_exclude', 'producers'
+            ]
+
+            # Filter search_options to only include recognized parameters
+            api_parameters = {k: v for k, v in search_options.items() if k in recognized_params}
+
+            # Pass parameters to Jikanpy's search method
+            jikan_response = self.jikan_client.search(
+                "anime",
+                title,
+                pagination_key,
+                parameters=api_parameters if api_parameters else None
+            )
+
             if jikan_response['data']:
                 for anime in jikan_response['data']:
                     item = Item(
@@ -414,7 +433,8 @@ class SearchWorker(BaseWorker):
                 "function": "lookup_anime",
                 "title": title,
                 "pagination_key": pagination_key,
-                "search_options": search_options
+                "search_options": search_options,
+                "api_parameters": api_parameters if 'api_parameters' in locals() else None
             })
         return response
     
