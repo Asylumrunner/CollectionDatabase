@@ -2,6 +2,7 @@ import pprint
 from .secrets import secrets
 from .BaseWorker import BaseWorker
 from DataClasses.item import Item
+from DataClasses.igdb_platforms import get_platform_id
 from jikanpy import Jikan
 import xml.etree.ElementTree as ET
 import concurrent.futures
@@ -43,7 +44,8 @@ class SearchWorker(BaseWorker):
         self.IGDB_Client_ID = secrets['IGDB_Client_ID']
         self.IGDB_Client_Secret = secrets['IGDB_Client_Secret']
         self.vg_lookup_req_template = "https://api.igdb.com/v4/games"
-        self.vg_lookup_req_body = "search \"{}\"; limit 25; offset {};fields artworks,cover.image_id,created_at,first_release_date,involved_companies.company.name,language_supports,name,platforms.name,ports,status,summary;"
+        # Format: search term, offset, where clause (empty string if no filters)
+        self.vg_lookup_req_body = "search \"{}\"; limit 25; offset {}; fields artworks,cover.image_id,created_at,first_release_date,involved_companies.company.name,language_supports,name,platforms.name,ports,status,summary;{}"
         self.get_IGDB_Access_Token()
 
         super().__init__()
@@ -233,7 +235,40 @@ class SearchWorker(BaseWorker):
         search_options = search_options if search_options else {}
         response = {"items": [], "passed": False}
         try:
-            req = requests.post(self.vg_lookup_req_template, data=self.vg_lookup_req_body.format(title, (int(pagination_key)-1) * 25), headers=self.IGDB_headers).json()
+            # Build where clause conditions
+            where_conditions = []
+
+            # Handle platform filter
+            if 'platform' in search_options:
+                platform_id = get_platform_id(search_options['platform'])
+                if platform_id:
+                    where_conditions.append(f"platforms = {platform_id}")
+
+            # Handle release date filters
+            # Expected format: MM/DD/YYYY
+            if 'release_date_before' in search_options:
+                try:
+                    date_obj = datetime.strptime(search_options['release_date_before'], '%m/%d/%Y')
+                    unix_timestamp = int(date_obj.timestamp())
+                    where_conditions.append(f"first_release_date < {unix_timestamp}")
+                except ValueError:
+                    logging.warning(f"Invalid release_date_before format: {search_options['release_date_before']}")
+
+            if 'release_date_after' in search_options:
+                try:
+                    date_obj = datetime.strptime(search_options['release_date_after'], '%m/%d/%Y')
+                    unix_timestamp = int(date_obj.timestamp())
+                    where_conditions.append(f"first_release_date > {unix_timestamp}")
+                except ValueError:
+                    logging.warning(f"Invalid release_date_after format: {search_options['release_date_after']}")
+
+            # Build complete where clause if we have conditions
+            where_clause = f" where {' & '.join(where_conditions)};" if where_conditions else ""
+
+            # Build the request body
+            request_body = self.vg_lookup_req_body.format(title, (int(pagination_key)-1) * 25, where_clause)
+
+            req = requests.post(self.vg_lookup_req_template, data=request_body, headers=self.IGDB_headers).json()
             for game in req:
                 guid = game["id"]
                 game_title = game["name"]
@@ -250,12 +285,14 @@ class SearchWorker(BaseWorker):
             response['next_page'] = int(pagination_key) + 1
             response["passed"] = True
         except Exception as e:
-            logging.error("Exception in lookup for title {} in VideoGameController: {}".format(title, e))
+            request_body_info = request_body if 'request_body' in locals() else 'Not yet formed'
+            logging.error("Exception in lookup for title {} in VideoGameController: {}. Request body: {}".format(title, e, request_body_info))
             response["exception"] = self._build_exception_dict(e, {
                 "function": "lookup_video_game",
                 "title": title,
                 "pagination_key": pagination_key,
-                "search_options": search_options
+                "search_options": search_options,
+                "request_body": request_body_info
             })
         return response
     
