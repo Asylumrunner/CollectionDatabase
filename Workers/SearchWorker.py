@@ -4,6 +4,7 @@ from .BaseWorker import BaseWorker
 from DataClasses.item import Item
 from DataClasses.igdb_platforms import get_platform_id
 from jikanpy import Jikan
+import discogs_client
 import xml.etree.ElementTree as ET
 import concurrent.futures
 import logging
@@ -32,9 +33,12 @@ class SearchWorker(BaseWorker):
         self.movie_lookup_template = "https://api.themoviedb.org/3/movie/{}?api_key={}"
         self.movie_credits_lookup_template = "https://api.themoviedb.org/3/movie/{}/credits?api_key={}"
 
-        # Used for Music Lookup
-        self.AUDIODB_API_KEY = secrets['AudioDB_Key']
-        self.music_lookup_req_template = "https://www.theaudiodb.com/api/v1/json/{}/searchalbum.php?s={}"
+        # Used for Music Lookup - Discogs API
+        self.DISCOGS_USER_TOKEN = secrets['Discogs_Token']
+        self.discogs_client = discogs_client.Client(
+            'CollectionDatabase/1.0',
+            user_token=self.DISCOGS_USER_TOKEN
+        )
 
         # Used for RPG Lookup
         self.rpg_lookup_req_template = "https://rpggeek.com/xmlapi2/search?query={}&type=rpgitem"
@@ -44,7 +48,6 @@ class SearchWorker(BaseWorker):
         self.IGDB_Client_ID = secrets['IGDB_Client_ID']
         self.IGDB_Client_Secret = secrets['IGDB_Client_Secret']
         self.vg_lookup_req_template = "https://api.igdb.com/v4/games"
-        # Format: search term, offset, where clause (empty string if no filters)
         self.vg_lookup_req_body = "search \"{}\"; limit 25; offset {}; fields artworks,cover.image_id,created_at,first_release_date,involved_companies.company.name,language_supports,name,platforms.name,ports,status,summary;{}"
         self.get_IGDB_Access_Token()
 
@@ -438,33 +441,83 @@ class SearchWorker(BaseWorker):
             })
         return response
     
-    def lookup_music(self, artist, pagination_key, search_options=None):
+    def lookup_music(self, album, pagination_key, search_options=None):
         search_options = search_options if search_options else {}
         response = {"items": [], "passed": False}
         try:
-            results = requests.get(self.music_lookup_req_template.format(self.AUDIODB_API_KEY, artist)).json()
-            if results['album']:
-                for release in results['album']:
+            # Build Discogs search query
+            # Discogs API supports: artist, release_title, label, genre, year, format, etc.
+            search_params = {'release_title': album, 'type': 'release'}
+
+            # Add optional artist filter
+            if 'artist' in search_options:
+                search_params['artist'] = search_options['artist']
+
+            # Add optional genre filter
+            if 'genre' in search_options:
+                search_params['genre'] = search_options['genre']
+
+            # Add optional year filter
+            if 'year' in search_options:
+                search_params['year'] = search_options['year']
+
+            # Add optional format filter (CD, Vinyl, etc.)
+            if 'format' in search_options:
+                search_params['format'] = search_options['format']
+
+            # Perform search
+            results = self.discogs_client.search(**search_params)
+
+            # Get the specified page of results
+            page_results = results.page(pagination_key)
+
+            for release in page_results:
+                # Get full release details
+                try:
+                    release_id = release.id
+                    full_release = self.discogs_client.release(release_id)
+
+                    # Extract artist names
+                    artists = [artist.name for artist in full_release.artists] if hasattr(full_release, 'artists') else []
+                    artist_str = ', '.join(artists) if artists else None
+
+                    # Get release year
+                    release_year = full_release.year if hasattr(full_release, 'year') else None
+
+                    # Get cover image (prefer the first image if available)
+                    img_link = None
+                    if hasattr(full_release, 'images') and full_release.images:
+                        img_link = full_release.images[0]['uri']
+
+                    # Get notes/description
+                    summary = full_release.notes if hasattr(full_release, 'notes') else None
+
                     item = Item(
-                        release['idAlbum'],
-                        release.get('strAlbumStripped'),
+                        release_id,
+                        full_release.title,
                         'music',
-                        release.get('intYearReleased'),
-                        release.get('strAlbumThumb'),
-                        release['idAlbum'],
-                        release.get('strArtistStripped'),
-                        summary=release.get('strDescriptionEN')
+                        release_year,
+                        img_link,
+                        release_id,
+                        artist_str,
+                        summary=summary
                     )
                     response['items'].append(item)
-            response['next_page'] = pagination_key
+                except Exception as release_error:
+                    # If we can't get full details, skip this release
+                    logging.warning(f"Could not fetch details for release {release.id}: {release_error}")
+                    continue
+
+            response['next_page'] = int(pagination_key) + 1
             response['passed'] = True
         except Exception as e:
-            logging.error("Exception in lookup for title {} in MusicController: {}".format(artist, e))
+            logging.error("Exception in lookup for album {} in MusicController: {}".format(album, e))
             response["exception"] = self._build_exception_dict(e, {
                 "function": "lookup_music",
-                "artist": artist,
+                "album": album,
                 "pagination_key": pagination_key,
-                "search_options": search_options
+                "search_options": search_options,
+                "search_params": search_params if 'search_params' in locals() else None
             })
         return response
 
