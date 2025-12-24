@@ -479,7 +479,6 @@ class SearchWorker(BaseWorker):
 
                     # Extract artist names
                     artists = [artist.name for artist in full_release.artists] if hasattr(full_release, 'artists') else []
-                    artist_str = ', '.join(artists) if artists else None
 
                     # Get release year
                     release_year = full_release.year if hasattr(full_release, 'year') else None
@@ -499,7 +498,7 @@ class SearchWorker(BaseWorker):
                         release_year,
                         img_link,
                         release_id,
-                        artist_str,
+                        artists,
                         summary=summary
                     )
                     response['items'].append(item)
