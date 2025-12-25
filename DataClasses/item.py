@@ -20,3 +20,5 @@ class Item:
     max_players: Optional[int] = None
     episodes: Optional[int] = None
     platforms: Optional[List[str]] = None
+    tracklist: Optional[List[str]] = None
+    genres: Optional[List[str]] = None

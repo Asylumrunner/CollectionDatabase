@@ -447,23 +447,14 @@ class SearchWorker(BaseWorker):
         try:
             # Build Discogs search query
             # Discogs API supports: artist, release_title, label, genre, year, format, etc.
-            search_params = {'release_title': album, 'type': 'release'}
+            search_params = {'release_title': album, 'type': 'master'}
 
-            # Add optional artist filter
-            if 'artist' in search_options:
-                search_params['artist'] = search_options['artist']
+            # Add optional search parameters
+            recognized_params = ['artist', 'genre', 'year', 'format', 'label', 'country', 'style']
 
-            # Add optional genre filter
-            if 'genre' in search_options:
-                search_params['genre'] = search_options['genre']
-
-            # Add optional year filter
-            if 'year' in search_options:
-                search_params['year'] = search_options['year']
-
-            # Add optional format filter (CD, Vinyl, etc.)
-            if 'format' in search_options:
-                search_params['format'] = search_options['format']
+            for param in recognized_params:
+                if param in search_options:
+                    search_params[param] = search_options[param]
 
             # Perform search
             results = self.discogs_client.search(**search_params)
@@ -471,40 +462,66 @@ class SearchWorker(BaseWorker):
             # Get the specified page of results
             page_results = results.page(pagination_key)
 
-            for release in page_results:
-                # Get full release details
+            for master in page_results:
+                # Get full master details
                 try:
-                    release_id = release.id
-                    full_release = self.discogs_client.release(release_id)
+                    master_id = master.id
+                    full_master = self.discogs_client.master(master_id)
 
-                    # Extract artist names
-                    artists = [artist.name for artist in full_release.artists] if hasattr(full_release, 'artists') else []
+                    # Get the main release to access additional data like artists
+                    main_release = None
+                    if hasattr(full_master, 'main_release'):
+                        main_release = full_master.main_release
+
+                    # Extract artist names from main_release if available, otherwise from master data
+                    artists = []
+                    if main_release and hasattr(main_release, 'artists') and main_release.artists:
+                        try:
+                            artists = [artist.name for artist in main_release.artists]
+                        except (AttributeError, TypeError) as artist_error:
+                            logging.warning(f"Could not extract artist names for master {master_id}: {artist_error}")
+                    elif hasattr(full_master, 'data') and 'artists' in full_master.data:
+                        # Fallback to raw data if main_release doesn't have artists
+                        artists = [artist['name'] for artist in full_master.data['artists'] if 'name' in artist]
 
                     # Get release year
-                    release_year = full_release.year if hasattr(full_release, 'year') else None
+                    release_year = full_master.year if hasattr(full_master, 'year') else None
 
                     # Get cover image (prefer the first image if available)
                     img_link = None
-                    if hasattr(full_release, 'images') and full_release.images:
-                        img_link = full_release.images[0]['uri']
+                    if hasattr(full_master, 'images') and full_master.images:
+                        img_link = full_master.images[0]['uri']
 
                     # Get notes/description
-                    summary = full_release.notes if hasattr(full_release, 'notes') else None
+                    summary = full_master.notes if hasattr(full_master, 'notes') else None
+
+                    # Get genres (if available)
+                    genres = None
+                    if hasattr(full_master, 'genres') and full_master.genres:
+                        genres = list(full_master.genres)
+
+                    # Get tracklist directly from the master
+                    tracklist = None
+                    if hasattr(full_master, 'tracklist') and full_master.tracklist:
+                        # Extract track titles from the tracklist
+                        tracklist = [track.title for track in full_master.tracklist if hasattr(track, 'title')]
 
                     item = Item(
-                        release_id,
-                        full_release.title,
+                        master_id,
+                        full_master.title,
                         'music',
                         release_year,
                         img_link,
-                        release_id,
+                        master_id,
                         artists,
-                        summary=summary
+                        summary=summary,
+                        tracklist=tracklist,
+                        genres=genres
                     )
                     response['items'].append(item)
-                except Exception as release_error:
-                    # If we can't get full details, skip this release
-                    logging.warning(f"Could not fetch details for release {release.id}: {release_error}")
+                except Exception as master_error:
+                    # If we can't get full details, skip this master
+                    logging.warning(f"Could not fetch details for master {master.id}: {master_error}")
                     continue
 
             response['next_page'] = int(pagination_key) + 1
