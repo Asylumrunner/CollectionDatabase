@@ -1,12 +1,24 @@
 import flask
 from flask_cors import CORS
-from flask import request
+from flask import request, g
 from Workers.SearchWorker import SearchWorker
+from Utilities.auth_middleware import require_auth
 import logging
 
 app = flask.Flask(__name__)
 app.config['DEBUG'] = True
-CORS(app)
+
+# Configure CORS to restrict origins to frontend domains
+CORS(app,
+     origins=[
+         'http://localhost:5173',  # Vite dev server
+         'http://localhost:3000',  # Alternative dev port
+         # Add your production frontend URL here when deploying
+     ],
+     allow_headers=['Content-Type', 'Authorization'],
+     methods=['GET', 'POST', 'OPTIONS'],
+     supports_credentials=True
+)
 
 def init():
     workers = {}
@@ -16,12 +28,19 @@ def init():
 workers = init()
 
 @app.route('/', methods=['GET'])
+@require_auth
 def health_check():
     return create_response(True, 200, ["Health Check Passed!"])
 
 
 @app.route('/search/<title>', methods=['GET'])
+@require_auth
 def lookup_data(title):
+    # Access authenticated user information
+    user_id = g.user_id
+    user_email = g.user_email
+    logging.info(f'Search request from user {user_id} ({user_email}) for title: {title}')
+
     media_type = request.args.get("media_type")
     pagination_key = request.args.get("page", None)
     logging.info(f'media_type provided with search request {media_type}')
