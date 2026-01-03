@@ -2,6 +2,9 @@ import flask
 from flask_cors import CORS
 from flask import request
 from Workers.SearchWorker import SearchWorker
+from Utilities.AuthenticateRequest import is_signed_in
+from clerk_backend_api import ClerkError
+
 import logging
 
 app = flask.Flask(__name__)
@@ -22,6 +25,12 @@ def health_check():
 
 @app.route('/search/<title>', methods=['GET'])
 def lookup_data(title):
+    try:
+        print("Requesting signed_in state")
+        request_state = is_signed_in(request)
+    except Exception:
+        return create_response(False, 400, [], "Authentication failed")
+    
     media_type = request.args.get("media_type")
     pagination_key = request.args.get("page", None)
     logging.info(f'media_type provided with search request {media_type}')

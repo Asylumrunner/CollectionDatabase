@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from .secrets import secrets
+from Workers.secrets import secrets
 
 class BaseWorker(ABC):
     database = None

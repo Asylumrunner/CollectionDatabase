@@ -1,6 +1,6 @@
 import pprint
-from .secrets import secrets
-from .BaseWorker import BaseWorker
+from Workers.secrets import secrets
+from Workers.BaseWorker import BaseWorker
 from DataClasses.item import Item
 from DataClasses.igdb_platforms import get_platform_id
 from jikanpy import Jikan
