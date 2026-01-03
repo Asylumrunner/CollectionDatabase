@@ -1,6 +1,8 @@
 from Workers.secrets import secrets
 from clerk_backend_api import Clerk, ClerkError
 from clerk_backend_api.security.types import AuthenticateRequestOptions
+from flask import request, jsonify
+from functools import wraps
 import sys
 import traceback
 import pprint
@@ -30,8 +32,24 @@ def is_signed_in(request):
         raise e
 
     if request_state.is_signed_in:
-        print("We are indeed signed in!")
-        return request_state
+        return True
     else:
-        print("We are not signed in, throwing error")
         raise ClerkError("Request not authenticated")
+
+def authenticated_endpoint(f):
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        try:
+            request_state = is_signed_in(request)
+            return f(*args, **kwargs)
+        except Exception as e:
+            response_object = {
+                'status': 'FAILURE',
+                'data': [],
+                'err_msg': str(e),
+                'next_page': ''
+            }
+            response = jsonify(response_object)
+            response.status_code = 401
+            return response
+    return decorated_function
