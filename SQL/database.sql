@@ -19,12 +19,46 @@ CREATE TABLE IF NOT EXISTS items (
     release_year SMALLINT,
     date_added DATETIME DEFAULT CURRENT_TIMESTAMP,
     date_last_updated DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    created_by VARCHAR(255),
     img_link VARCHAR(255),
     original_api_id VARCHAR(255),
+    summary VARCHAR(1024),
     PRIMARY KEY (id),
     FOREIGN KEY (media_type)
         REFERENCES media_types(id)
+);
+
+CREATE TABLE IF NOT EXISTS creators (
+    creator_id INT NOT NULL AUTO_INCREMENT,
+    creator_name VARCHAR(255) NOT NULL,
+    PRIMARY KEY (creator_id),
+    UNIQUE KEY (creator_name)
+);
+
+CREATE TABLE IF NOT EXISTS item_creators (
+    item_id INT NOT NULL,
+    creator_id INT NOT NULL,
+    PRIMARY KEY (item_id, creator_id),
+    FOREIGN KEY (item_id)
+        REFERENCES items(id),
+    FOREIGN KEY (creator_id)
+        REFERENCES creators(creator_id)
+);
+
+CREATE TABLE IF NOT EXISTS genres (
+    genre_id INT NOT NULL AUTO_INCREMENT,
+    genre_name VARCHAR(64) NOT NULL,
+    PRIMARY KEY (genre_id),
+    UNIQUE KEY (genre_name)
+);
+
+CREATE TABLE IF NOT EXISTS item_genres (
+    item_id INT NOT NULL,
+    genre_id INT NOT NULL,
+    PRIMARY KEY (item_id, genre_id),
+    FOREIGN KEY (item_id)
+        REFERENCES items(id),
+    FOREIGN KEY (genre_id)
+        REFERENCES genres(genre_id)
 );
 
 CREATE TABLE IF NOT EXISTS books (
@@ -39,7 +73,6 @@ CREATE TABLE IF NOT EXISTS books (
 CREATE TABLE IF NOT EXISTS movies (
     id INT NOT NULL,
     lang VARCHAR(6),
-    summary VARCHAR(512),
     duration SMALLINT,
     PRIMARY KEY (id),
     FOREIGN KEY (id)
@@ -48,7 +81,6 @@ CREATE TABLE IF NOT EXISTS movies (
 
 CREATE TABLE IF NOT EXISTS video_games (
     id INT NOT NULL,
-    summary VARCHAR(512),
     PRIMARY KEY (id),
     FOREIGN KEY (id)
         REFERENCES items(id)
@@ -56,9 +88,8 @@ CREATE TABLE IF NOT EXISTS video_games (
 
 CREATE TABLE IF NOT EXISTS board_games (
     id INT NOT NULL,
-    minimum_players TINYINT,
-    maximum_players TINYINT,
-    summary VARCHAR(512),
+    min_players TINYINT,
+    max_players TINYINT,
     duration SMALLINT,
     PRIMARY KEY (id),
     FOREIGN KEY (id)
@@ -68,7 +99,6 @@ CREATE TABLE IF NOT EXISTS board_games (
 CREATE TABLE IF NOT EXISTS rpgs (
     id INT NOT NULL,
     isbn VARCHAR(16),
-    summary VARCHAR(512),
     PRIMARY KEY (id),
     FOREIGN KEY (id)
         REFERENCES items(id)
@@ -77,7 +107,6 @@ CREATE TABLE IF NOT EXISTS rpgs (
 CREATE TABLE IF NOT EXISTS anime (
     id INT NOT NULL,
     episodes SMALLINT,
-    summary VARCHAR(512),
     PRIMARY KEY (id),
     FOREIGN KEY (id)
         REFERENCES items(id)
@@ -85,10 +114,18 @@ CREATE TABLE IF NOT EXISTS anime (
 
 CREATE TABLE IF NOT EXISTS albums (
     id INT NOT NULL,
-    summary VARCHAR(512),
     PRIMARY KEY (id),
     FOREIGN KEY (id)
         REFERENCES items(id)
+);
+
+CREATE TABLE IF NOT EXISTS album_tracks (
+    album_id INT NOT NULL,
+    track_number TINYINT NOT NULL,
+    track_name VARCHAR(255) NOT NULL,
+    PRIMARY KEY (album_id, track_number),
+    FOREIGN KEY (album_id)
+        REFERENCES albums(id)
 );
 
 CREATE TABLE IF NOT EXISTS collection_items (

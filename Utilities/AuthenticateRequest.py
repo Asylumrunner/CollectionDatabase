@@ -18,7 +18,7 @@ def is_signed_in(request):
                 ]
             )
         )
-        pprint.pprint(request_state)
+        user = request_state.payload.get('sub', None)
     except Exception as e:
         _exc_type, _exc_value, exc_traceback = sys.exc_info()
 
@@ -32,7 +32,7 @@ def is_signed_in(request):
         raise e
 
     if request_state.is_signed_in:
-        return True
+        return user
     else:
         raise ClerkError("Request not authenticated")
 
@@ -40,7 +40,8 @@ def authenticated_endpoint(f):
     @wraps(f)
     def decorated_function(*args, **kwargs):
         try:
-            request_state = is_signed_in(request)
+            user_id = is_signed_in(request)
+            kwargs['user_id'] = user_id
             return f(*args, **kwargs)
         except Exception as e:
             response_object = {

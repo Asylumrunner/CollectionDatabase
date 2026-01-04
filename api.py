@@ -24,7 +24,7 @@ def health_check():
 
 @app.route('/search/<title>', methods=['GET'])
 @authenticated_endpoint
-def lookup_data(title):
+def lookup_data(title, user_id=None):
     media_type = request.args.get("media_type")
     pagination_key = request.args.get("page", None)
     logging.info(f'media_type provided with search request {media_type}')
@@ -49,7 +49,7 @@ def lookup_data(title):
     
 @app.route('/collection', methods=['GET'])
 @authenticated_endpoint
-def get_or_create_collection():
+def get_or_create_collection(user_id=None):
     return create_response(True, 200, None, "Workin' On It!")
 
 def create_response(passed, status_code, page, data=[], err_msg=''):
