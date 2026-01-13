@@ -2,6 +2,7 @@ import flask
 from flask_cors import CORS
 from flask import request
 from Workers.SearchWorker import SearchWorker
+from Workers.ItemWorker import ItemWorker
 from Utilities.AuthenticateRequest import authenticated_endpoint
 
 import logging

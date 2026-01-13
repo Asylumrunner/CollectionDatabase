@@ -183,3 +183,68 @@ INSERT INTO media_types (type_name) VALUES ('board_game');
 INSERT INTO media_types (type_name) VALUES ('rpg');
 INSERT INTO media_types (type_name) VALUES ('anime');
 INSERT INTO media_types (type_name) VALUES ('album');
+
+-- Create comprehensive view for simplified item retrieval
+CREATE OR REPLACE VIEW items_complete_view AS
+SELECT
+    i.id,
+    i.title,
+    mt.type_name AS media_type,
+    i.release_year,
+    i.img_link,
+    i.original_api_id,
+    i.summary,
+    i.date_added,
+    i.date_last_updated,
+
+    -- Aggregated creators as JSON array
+    (SELECT JSON_ARRAYAGG(c.creator_name)
+     FROM item_creators ic
+     JOIN creators c ON ic.creator_id = c.creator_id
+     WHERE ic.item_id = i.id) AS creators,
+
+    -- Aggregated genres as JSON array
+    (SELECT JSON_ARRAYAGG(g.genre_name)
+     FROM item_genres ig
+     JOIN genres g ON ig.genre_id = g.genre_id
+     WHERE ig.item_id = i.id) AS genres,
+
+    -- Book-specific fields
+    b.isbn AS book_isbn,
+    b.printing_year AS book_printing_year,
+
+    -- Movie-specific fields
+    m.lang AS movie_lang,
+    m.duration AS movie_duration,
+
+    -- Board game-specific fields
+    bg.min_players AS boardgame_min_players,
+    bg.max_players AS boardgame_max_players,
+    bg.duration AS boardgame_duration,
+
+    -- RPG-specific fields
+    r.isbn AS rpg_isbn,
+
+    -- Anime-specific fields
+    a.episodes AS anime_episodes,
+
+    -- Video game platforms as JSON array
+    (SELECT JSON_ARRAYAGG(vgp.platform_name)
+     FROM game_platform_availabilities gpa
+     JOIN video_game_platforms vgp ON gpa.platform_id = vgp.platform_id
+     WHERE gpa.game_id = i.id) AS videogame_platforms,
+
+    -- Album tracks as JSON array of track names (ordered)
+    (SELECT JSON_ARRAYAGG(at.track_name ORDER BY at.track_number)
+     FROM album_tracks at
+     WHERE at.album_id = i.id) AS album_tracks
+
+FROM items i
+JOIN media_types mt ON i.media_type = mt.id
+LEFT JOIN books b ON i.id = b.id
+LEFT JOIN movies m ON i.id = m.id
+LEFT JOIN video_games vg ON i.id = vg.id
+LEFT JOIN board_games bg ON i.id = bg.id
+LEFT JOIN rpgs r ON i.id = r.id
+LEFT JOIN anime a ON i.id = a.id
+LEFT JOIN albums alb ON i.id = alb.id;
