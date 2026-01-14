@@ -260,3 +260,65 @@ class ItemWorker(BaseWorker):
             })
             return response
 
+    def add_item_to_collection(self, user_id, item):
+        add_item_response = self.add_item(item)
+        if not add_item_response["passed"]:
+            return {
+                "passed": False,
+                "step_failed": "add_item",
+                "step_status": add_item_response
+            }
+
+        item_id = add_item_response["Item"].id
+
+        cursor = None
+        connection = None
+        current_step = None
+        try:
+            connection = self.get_connection()
+            cursor = connection.cursor(dictionary=True)
+
+            # Check if item/user pairing already exists in collection_items
+            current_step = "check_collection_item_exists"
+            query = "SELECT * FROM collection_items WHERE item_id = %s AND user_id = %s"
+            cursor.execute(query, (item_id, user_id))
+            result = cursor.fetchone()
+
+            if result:
+                return {
+                    "passed": True,
+                    "already_exists": True,
+                    "Item": add_item_response["Item"]
+                }
+
+            # Add item/user pairing to collection_items
+            current_step = "add_collection_item"
+            insert_query = "INSERT INTO collection_items (item_id, user_id) VALUES (%s, %s)"
+            cursor.execute(insert_query, (item_id, user_id))
+            connection.commit()
+
+            return {
+                "passed": True,
+                "already_exists": False,
+                "item_id": item_id,
+                "user_id": user_id
+            }
+        except Exception as e:
+            if connection:
+                connection.rollback()
+            return {
+                "passed": False,
+                "step_failed": current_step,
+                "exception": self._build_exception_dict(e, {
+                    "function": "add_item_to_collection",
+                    "step": current_step,
+                    "item_id": item_id,
+                    "user_id": user_id
+                })
+            }
+        finally:
+            if cursor:
+                cursor.close()
+            if connection:
+                connection.close()
+
