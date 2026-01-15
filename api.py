@@ -50,7 +50,6 @@ def lookup_data(title, user_id=None):
     else:
         return create_response(True, 200, lookup_response['next_page'], lookup_response['items'])
 
-
 @app.route('/collection/item', methods=['PUT'])
 @authenticated_endpoint
 def add_item_to_collection(user_id=None):

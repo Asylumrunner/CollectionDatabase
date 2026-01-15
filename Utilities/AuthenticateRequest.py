@@ -6,8 +6,12 @@ from functools import wraps
 import sys
 import traceback
 import pprint
+import os
 
 def is_signed_in(request):
+    if os.environ.get('SKIP_AUTH'):
+        return os.environ.get('DEV_USER_ID', 'test_user_dev')
+
     try:
         clerk = Clerk(bearer_auth=secrets['CLERK_SECRET_KEY'])
         request_state = clerk.authenticate_request(
