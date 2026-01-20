@@ -11,7 +11,9 @@
             "module": "flask",
             "env": {
                 "FLASK_APP": "api.py",
-                "FLASK_DEBUG": "1"
+                "FLASK_DEBUG": "1",
+                "SKIP_AUTH": "true",
+                "DEV_USER_ID": "user_37UGq98yQXRfrOZwfflJlaGbxBe"
             },
             "args": [
                 "run",

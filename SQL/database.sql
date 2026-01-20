@@ -235,9 +235,8 @@ SELECT
      WHERE gpa.game_id = i.id) AS videogame_platforms,
 
     -- Album tracks as JSON array of track names (ordered)
-    (SELECT JSON_ARRAYAGG(at.track_name ORDER BY at.track_number)
-     FROM album_tracks at
-     WHERE at.album_id = i.id) AS album_tracks
+    (SELECT JSON_ARRAYAGG(ordered_tracks.track_name)
+     FROM (SELECT track_name FROM album_tracks WHERE album_id = i.id ORDER BY track_number) AS ordered_tracks) AS album_tracks
 
 FROM items i
 JOIN media_types mt ON i.media_type = mt.id

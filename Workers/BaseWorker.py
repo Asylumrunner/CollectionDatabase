@@ -30,9 +30,31 @@ class BaseWorker(ABC):
             )
             cls._pool_initialized = True
             logger.info("Database connection pool initialized successfully")
+            cls._load_media_type_mappings()
         except Error as e:
             logger.error(f"Failed to initialize connection pool: {e}")
             raise
+
+    @classmethod
+    def _load_media_type_mappings(cls):
+        """Load media type name -> ID mappings from the database."""
+        connection = None
+        cursor = None
+        try:
+            connection = cls._connection_pool.get_connection()
+            cursor = connection.cursor(dictionary=True)
+            cursor.execute("SELECT id, type_name FROM media_types")
+            for row in cursor.fetchall():
+                cls.media_type_mappings[row['type_name']] = row['id']
+            logger.info(f"Loaded media type mappings: {cls.media_type_mappings}")
+        except Error as e:
+            logger.error(f"Failed to load media type mappings: {e}")
+            raise
+        finally:
+            if cursor:
+                cursor.close()
+            if connection:
+                connection.close()
 
     def get_connection(self):
         if not self._pool_initialized:

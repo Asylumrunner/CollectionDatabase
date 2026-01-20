@@ -111,9 +111,13 @@ class ItemWorker(BaseWorker):
                         INSERT INTO items (title, media_type, release_year, img_link, original_api_id, summary)
                         VALUES (%s, %s, %s, %s, %s, %s)
                     """
+                    media_type_id = self.media_type_mappings.get(item.media_type)
+                    if media_type_id is None:
+                        raise ValueError(f"Unknown media type: {item.media_type}")
+
                     cursor.execute(item_query, (
                         item.title,
-                        item.media_type,
+                        media_type_id,
                         item.release_year,
                         item.img_link,
                         item.original_api_id,
@@ -221,14 +225,15 @@ class ItemWorker(BaseWorker):
                                 )
 
                     connection.commit()
-
-                    response["Item"] = self.get_item_by_id(item_id)
-                    return response
                 except Exception:
                     connection.rollback()
                     raise
                 finally:
                     cursor.close()
+
+            # Fetch complete item AFTER releasing the connection to avoid pool exhaustion
+            response["Item"] = self.get_item_by_id(item_id)
+            return response
 
         except Exception as e:
             response["passed"] = False
