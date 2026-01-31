@@ -37,7 +37,6 @@ class BaseWorker(ABC):
 
     @classmethod
     def _load_media_type_mappings(cls):
-        """Load media type name -> ID mappings from the database."""
         connection = None
         cursor = None
         try:

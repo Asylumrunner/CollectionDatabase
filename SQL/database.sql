@@ -1,9 +1,9 @@
 CREATE TABLE IF NOT EXISTS users (
-    user_id INT NOT NULL AUTO_INCREMENT,
+    clerk_user_id VARCHAR(255) NOT NULL,
     username VARCHAR(255) NOT NULL,
     date_added DATETIME DEFAULT CURRENT_TIMESTAMP,
     last_login DATETIME DEFAULT CURRENT_TIMESTAMP,
-    PRIMARY KEY (user_id)
+    PRIMARY KEY (clerk_user_id)
 );
 
 CREATE TABLE IF NOT EXISTS media_types (
@@ -130,23 +130,23 @@ CREATE TABLE IF NOT EXISTS album_tracks (
 
 CREATE TABLE IF NOT EXISTS collection_items (
     item_id INT NOT NULL,
-    user_id INT NOT NULL,
+    clerk_user_id VARCHAR(255) NOT NULL,
     date_added DATETIME DEFAULT CURRENT_TIMESTAMP,
-    PRIMARY KEY (item_id, user_id),
+    PRIMARY KEY (item_id, clerk_user_id),
     FOREIGN KEY (item_id)
         REFERENCES items(id),
-    FOREIGN KEY (user_id)
-        REFERENCES users(user_id)
+    FOREIGN KEY (clerk_user_id)
+        REFERENCES users(clerk_user_id)
 );
 
 CREATE TABLE IF NOT EXISTS user_lists (
     list_id INT NOT NULL AUTO_INCREMENT,
     list_name VARCHAR(64) NOT NULL,
-    user_id INT NOT NULL,
+    clerk_user_id VARCHAR(255) NOT NULL,
     date_added DATETIME DEFAULT CURRENT_TIMESTAMP,
     PRIMARY KEY (list_id),
-    FOREIGN KEY (user_id)
-        REFERENCES users(user_id)
+    FOREIGN KEY (clerk_user_id)
+        REFERENCES users(clerk_user_id)
 );
 
 CREATE TABLE IF NOT EXISTS list_items (

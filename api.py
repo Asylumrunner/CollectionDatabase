@@ -3,8 +3,10 @@ from flask_cors import CORS
 from flask import request
 from Workers.SearchWorker import SearchWorker
 from Workers.ItemWorker import ItemWorker
+from Workers.UserWorker import UserWorker
 from DataClasses.item import Item
 from Utilities.AuthenticateRequest import authenticated_endpoint
+from Utilities.VerifyClerkWebhook import verify_clerk_webhook
 
 import logging
 
@@ -16,6 +18,7 @@ def init():
     workers = {}
     workers['SEARCH'] = SearchWorker()
     workers['ITEM'] = ItemWorker()
+    workers['USER'] = UserWorker()
     return workers
 
 workers = init()
@@ -89,6 +92,48 @@ def add_item_to_collection(user_id=None):
         return create_response(False, 500, None, [], result)
     else:
         return create_response(True, 200, None, result)
+
+
+@app.route('/webhooks/clerk', methods=['POST'])
+@verify_clerk_webhook
+def clerk_webhook(payload=None):
+    if not payload:
+        return create_response(False, 400, None, [], "No payload provided")
+
+    event_type = payload.get('type')
+    data = payload.get('data', {})
+
+    if event_type == 'user.created':
+        clerk_user_id = data.get('id')
+        email_addresses = data.get('email_addresses', [])
+        if email_addresses:
+            username = email_addresses[0].get('email_address', 'Unknown')
+        else:
+            first_name = data.get('first_name', '')
+            last_name = data.get('last_name', '')
+            username = f"{first_name} {last_name}".strip() or 'Unknown'
+
+        result = workers['USER'].create_user(clerk_user_id, username)
+
+        if result['passed']:
+            return create_response(True, 200, None, result)
+        else:
+            return create_response(False, 500, None, [], result)
+
+    elif event_type == 'user.deleted':
+        clerk_user_id = data.get('id')
+
+        result = workers['USER'].delete_user(clerk_user_id)
+
+        if result['passed']:
+            return create_response(True, 200, None, result)
+        else:
+            return create_response(False, 500, None, [], result)
+
+    else:
+        # Ignore other event types
+        logging.info(f"Ignoring unhandled Clerk webhook event: {event_type}")
+        return create_response(True, 200, None, {'message': f'Event {event_type} ignored'})
 
 
 def create_response(passed, status_code, page, data=[], err_msg=''):
