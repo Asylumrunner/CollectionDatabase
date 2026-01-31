@@ -36,6 +36,7 @@ MarkupSafe==2.1.5
 multidict==6.0.5
 mysql-connector-python==9.2.0
 oauthlib==3.2.2
+packaging==26.0
 placebo==0.9.0
 pycparser==2.23
 pydantic==2.12.3
@@ -50,6 +51,7 @@ PyYAML==6.0.1
 rawgpy==1.0.3
 requests==2.32.3
 s3transfer==0.10.1
+setuptools==80.10.2
 simplejson==3.19.2
 six==1.16.0
 svix==1.24.0
@@ -63,6 +65,7 @@ typing-inspection==0.4.2
 typing_extensions==4.15.0
 urllib3==1.26.6
 Werkzeug==3.0.3
+wheel==0.46.3
 wrapt==2.0.1
 WTForm==1.0
 yarl==1.9.4
