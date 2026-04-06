@@ -5,6 +5,10 @@
         "profile_name": "default",
         "project_name": "collectiondatab",
         "runtime": "python3.12",
-        "slim_handler": true
+        "slim_handler": true,
+        "vpc_config": {
+            "SubnetIds": ["subnet-00a7825879a1dd728", "subnet-0f90cdc1b183ca707"],
+            "SecurityGroupIds": ["sg-0ff70cbfae7089c6c"]
+        }
     }
 }
