@@ -28,66 +28,59 @@ class ItemWorker(BaseWorker):
             result = cursor.fetchone()
             return result['id'] if result else None
 
+    def _row_to_item(self, row):
+        creators = json.loads(row['creators']) if row['creators'] else []
+        genres = json.loads(row['genres']) if row['genres'] else []
+        platforms = json.loads(row['videogame_platforms']) if row['videogame_platforms'] else None
+        tracklist = json.loads(row['album_tracks']) if row['album_tracks'] else None
+
+        media_type = row['media_type']
+        isbn = printing_year = lang = duration = min_players = max_players = episodes = None
+
+        if media_type == 'book':
+            isbn = row['book_isbn']
+            printing_year = row['book_printing_year']
+        elif media_type == 'movie':
+            lang = row['movie_lang']
+            duration = row['movie_duration']
+        elif media_type == 'board_game':
+            min_players = row['boardgame_min_players']
+            max_players = row['boardgame_max_players']
+            duration = row['boardgame_duration']
+        elif media_type == 'rpg':
+            isbn = row['rpg_isbn']
+        elif media_type == 'anime':
+            episodes = row['anime_episodes']
+
+        return Item(
+            id=str(row['id']),
+            title=row['title'],
+            media_type=row['media_type'],
+            release_year=row['release_year'],
+            img_link=row['img_link'],
+            original_api_id=row['original_api_id'],
+            created_by=creators,
+            isbn=isbn,
+            printing_year=printing_year,
+            lang=lang,
+            summary=row['summary'],
+            duration=duration,
+            min_players=min_players,
+            max_players=max_players,
+            episodes=episodes,
+            platforms=platforms,
+            tracklist=tracklist,
+            genres=genres
+        )
+
     def get_item_by_id(self, item_id):
         with self.get_cursor_context(dictionary=True) as cursor:
             query = "SELECT * FROM items_complete_view WHERE id = %s"
             cursor.execute(query, (item_id,))
             row = cursor.fetchone()
-
             if not row:
                 return None
-
-            creators = json.loads(row['creators']) if row['creators'] else []
-            genres = json.loads(row['genres']) if row['genres'] else []
-            platforms = json.loads(row['videogame_platforms']) if row['videogame_platforms'] else None
-            tracklist = json.loads(row['album_tracks']) if row['album_tracks'] else None
-
-            media_type = row['media_type']
-            isbn = None
-            printing_year = None
-            lang = None
-            duration = None
-            min_players = None
-            max_players = None
-            episodes = None
-
-            if media_type == 'book':
-                isbn = row['book_isbn']
-                printing_year = row['book_printing_year']
-            elif media_type == 'movie':
-                lang = row['movie_lang']
-                duration = row['movie_duration']
-            elif media_type == 'board_game':
-                min_players = row['boardgame_min_players']
-                max_players = row['boardgame_max_players']
-                duration = row['boardgame_duration']
-            elif media_type == 'rpg':
-                isbn = row['rpg_isbn']
-            elif media_type == 'anime':
-                episodes = row['anime_episodes']
-            # video_game uses platforms (already parsed)
-            # album uses tracklist (already parsed)
-
-            return Item(
-                id=str(row['id']),
-                title=row['title'],
-                media_type=row['media_type'],
-                release_year=row['release_year'],
-                img_link=row['img_link'],
-                original_api_id=row['original_api_id'],
-                created_by=creators,
-                isbn=isbn,
-                printing_year=printing_year,
-                lang=lang,
-                summary=row['summary'],
-                duration=duration,
-                min_players=min_players,
-                max_players=max_players,
-                episodes=episodes,
-                platforms=platforms,
-                tracklist=tracklist,
-                genres=genres
-            )
+            return self._row_to_item(row)
 
     def get_item(self, media_type, original_api_id):
         item_id = self.check_item(media_type, original_api_id)
@@ -245,6 +238,48 @@ class ItemWorker(BaseWorker):
                 "title": item.title
             })
             return response
+
+    PAGE_SIZE = 25
+
+    def get_user_collection(self, user_id, page):
+        current_step = None
+        try:
+            with self.get_cursor_context(dictionary=True) as cursor:
+                current_step = "resolve_user_id"
+                internal_user_id = resolve_user_id(cursor, user_id)
+
+                current_step = "fetch_collection"
+                offset = (page - 1) * self.PAGE_SIZE
+                query = """
+                    SELECT v.* FROM items_complete_view v
+                    INNER JOIN collection_items ci ON ci.item_id = v.id
+                    WHERE ci.user_id = %s
+                    ORDER BY v.id
+                    LIMIT %s OFFSET %s
+                """
+                cursor.execute(query, (internal_user_id, self.PAGE_SIZE + 1, offset))
+                rows = cursor.fetchall()
+
+            has_more = len(rows) > self.PAGE_SIZE
+            items = [self._row_to_item(row) for row in rows[:self.PAGE_SIZE]]
+
+            return {
+                "passed": True,
+                "items": items,
+                "next_page": page + 1 if has_more else None
+            }
+
+        except Exception as e:
+            return {
+                "passed": False,
+                "step_failed": current_step,
+                "exception": self._build_exception_dict(e, {
+                    "function": "get_user_collection",
+                    "step": current_step,
+                    "user_id": user_id,
+                    "page": page
+                })
+            }
 
     def remove_item_from_collection(self, user_id, item_id):
         current_step = None

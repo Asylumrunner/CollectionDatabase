@@ -7,6 +7,7 @@ from Workers.UserWorker import UserWorker
 from DataClasses.item import Item
 from Utilities.AuthenticateRequest import authenticated_endpoint
 from Utilities.VerifyClerkWebhook import verify_clerk_webhook
+from dataclasses import asdict
 
 import logging
 
@@ -52,6 +53,22 @@ def lookup_data(title, user_id=None):
         return create_response(False, 500, [], pagination_key, lookup_response['exception'])
     else:
         return create_response(True, 200, lookup_response['next_page'], lookup_response['items'])
+
+@app.route('/collection', methods=['GET'])
+@authenticated_endpoint
+def get_collection(user_id=None):
+    try:
+        page = int(request.args.get('page', 1))
+    except ValueError:
+        return create_response(False, 400, None, [], "page must be an integer")
+
+    result = workers['ITEM'].get_user_collection(user_id, page)
+
+    if not result['passed']:
+        return create_response(False, 500, None, [], result)
+
+    return create_response(True, 200, result['next_page'], [asdict(item) for item in result['items']])
+
 
 @app.route('/collection/item', methods=['PUT'])
 @authenticated_endpoint
