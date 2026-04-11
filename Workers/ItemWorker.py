@@ -246,6 +246,39 @@ class ItemWorker(BaseWorker):
             })
             return response
 
+    def remove_item_from_collection(self, user_id, item_id):
+        current_step = None
+        try:
+            with self.get_connection_context() as connection:
+                cursor = connection.cursor(dictionary=True)
+                try:
+                    current_step = "resolve_user_id"
+                    internal_user_id = resolve_user_id(cursor, user_id)
+
+                    current_step = "delete_collection_item"
+                    delete_query = "DELETE FROM collection_items WHERE item_id = %s AND user_id = %s"
+                    cursor.execute(delete_query, (item_id, internal_user_id))
+                    connection.commit()
+
+                    return {"passed": True, "rows_deleted": cursor.rowcount}
+                except Exception:
+                    connection.rollback()
+                    raise
+                finally:
+                    cursor.close()
+
+        except Exception as e:
+            return {
+                "passed": False,
+                "step_failed": current_step,
+                "exception": self._build_exception_dict(e, {
+                    "function": "remove_item_from_collection",
+                    "step": current_step,
+                    "item_id": item_id,
+                    "user_id": user_id
+                })
+            }
+
     def add_item_to_collection(self, user_id, item):
         add_item_response = self.add_item(item)
         if not add_item_response["passed"]:

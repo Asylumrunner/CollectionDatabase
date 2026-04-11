@@ -94,6 +94,21 @@ def add_item_to_collection(user_id=None):
         return create_response(True, 200, None, result)
 
 
+@app.route('/collection/item', methods=['DELETE'])
+@authenticated_endpoint
+def remove_item_from_collection(user_id=None):
+    data = request.get_json()
+    if not data or 'id' not in data:
+        return create_response(False, 400, None, [], "Missing required field: id")
+
+    result = workers['ITEM'].remove_item_from_collection(user_id, data['id'])
+
+    if not result['passed']:
+        return create_response(False, 500, None, [], result)
+    else:
+        return create_response(True, 200, None, result)
+
+
 @app.route('/webhooks/clerk', methods=['POST'])
 @verify_clerk_webhook
 def clerk_webhook(payload=None):
