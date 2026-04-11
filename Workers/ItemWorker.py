@@ -1,5 +1,6 @@
 from Workers.BaseWorker import BaseWorker
 from DataClasses.item import Item
+from Utilities.ResolveUserId import resolve_user_id
 import sys
 import traceback
 import json
@@ -261,10 +262,14 @@ class ItemWorker(BaseWorker):
             with self.get_connection_context() as connection:
                 cursor = connection.cursor(dictionary=True)
                 try:
+                    # Resolve Clerk user ID to internal user_id
+                    current_step = "resolve_user_id"
+                    internal_user_id = resolve_user_id(cursor, user_id)
+
                     # Check if item/user pairing already exists in collection_items
                     current_step = "check_collection_item_exists"
                     query = "SELECT * FROM collection_items WHERE item_id = %s AND user_id = %s"
-                    cursor.execute(query, (item_id, user_id))
+                    cursor.execute(query, (item_id, internal_user_id))
                     result = cursor.fetchone()
 
                     if result:
@@ -277,14 +282,14 @@ class ItemWorker(BaseWorker):
                     # Add item/user pairing to collection_items
                     current_step = "add_collection_item"
                     insert_query = "INSERT INTO collection_items (item_id, user_id) VALUES (%s, %s)"
-                    cursor.execute(insert_query, (item_id, user_id))
+                    cursor.execute(insert_query, (item_id, internal_user_id))
                     connection.commit()
 
                     return {
                         "passed": True,
                         "already_exists": False,
                         "item_id": item_id,
-                        "user_id": user_id
+                        "user_id": internal_user_id
                     }
                 except Exception:
                     connection.rollback()
