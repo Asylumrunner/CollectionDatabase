@@ -49,7 +49,13 @@ class SearchWorker(BaseWorker):
         self.IGDB_Client_Secret = secrets['IGDB_Client_Secret']
         self.vg_lookup_req_template = "https://api.igdb.com/v4/games"
         self.vg_lookup_req_body = "search \"{}\"; limit 25; offset {}; fields artworks,cover.image_id,created_at,first_release_date,involved_companies.company.name,language_supports,name,platforms.name,ports,status,summary;{}"
-        self.get_IGDB_Access_Token()
+        try:
+            logging.info("Fetching IGDB access token...")
+            self.get_IGDB_Access_Token()
+            logging.info("IGDB access token fetched successfully.")
+        except Exception as e:
+            logging.error(f"Failed to fetch IGDB access token during SearchWorker init: {e}", exc_info=True)
+            raise
 
         super().__init__()
 

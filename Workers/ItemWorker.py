@@ -4,6 +4,9 @@ from Utilities.ResolveUserId import resolve_user_id
 import sys
 import traceback
 import json
+import logging
+logging.basicConfig(level=logging.DEBUG, format='%(asctime)s %(levelname)s %(name)s: %(message)s')
+
 
 class ItemWorker(BaseWorker):
     def __init__(self):
@@ -244,9 +247,12 @@ class ItemWorker(BaseWorker):
     def get_user_collection(self, user_id, page):
         current_step = None
         try:
+            logging.info("Beginning collection retrieve")
             with self.get_cursor_context(dictionary=True) as cursor:
+                logging.info("Getting user ID")
                 current_step = "resolve_user_id"
                 internal_user_id = resolve_user_id(cursor, user_id)
+                logging.info("Resolved user ID")
 
                 current_step = "fetch_collection"
                 offset = (page - 1) * self.PAGE_SIZE
@@ -259,7 +265,7 @@ class ItemWorker(BaseWorker):
                 """
                 cursor.execute(query, (internal_user_id, self.PAGE_SIZE + 1, offset))
                 rows = cursor.fetchall()
-
+            logging.info(f'Got {len(rows)} rows in user\'s collection')
             has_more = len(rows) > self.PAGE_SIZE
             items = [self._row_to_item(row) for row in rows[:self.PAGE_SIZE]]
 

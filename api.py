@@ -11,6 +11,8 @@ from dataclasses import asdict
 
 import logging
 
+logging.basicConfig(level=logging.DEBUG, format='%(asctime)s %(levelname)s %(name)s: %(message)s')
+
 app = flask.Flask(__name__)
 app.config['DEBUG'] = True
 CORS(app)
@@ -58,6 +60,7 @@ def lookup_data(title, user_id=None):
 @authenticated_endpoint
 def get_collection(user_id=None):
     try:
+        logging.info("Collecting user collection")
         page = int(request.args.get('page', 1))
     except ValueError:
         return create_response(False, 400, None, [], "page must be an integer")

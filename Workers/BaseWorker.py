@@ -3,6 +3,7 @@ from contextlib import contextmanager
 from Workers.secrets import secrets
 from mysql.connector import pooling, Error
 import logging
+import os
 
 # Set up logging
 logger = logging.getLogger(__name__)
@@ -19,11 +20,15 @@ class BaseWorker(ABC):
             return
 
         try:
+            db_host = os.environ.get('LOCAL_DB_HOST', secrets['database_endpoint'])
+            db_port = int(os.environ.get('LOCAL_DB_PORT', 3306))
+
             cls._connection_pool = pooling.MySQLConnectionPool(
                 pool_name="collection_pool",
                 pool_size=5,
                 pool_reset_session=True,
-                host=secrets['database_endpoint'],
+                host=db_host,
+                port=db_port,
                 database=secrets['collection_database_name'],
                 user=secrets['database_username'],
                 password=secrets['database_password']

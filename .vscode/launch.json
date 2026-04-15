@@ -13,7 +13,9 @@
                 "FLASK_APP": "api.py",
                 "FLASK_DEBUG": "1",
                 "SKIP_AUTH": "true",
-                "DEV_USER_ID": "user_37UGq98yQXRfrOZwfflJlaGbxBe"
+                "DEV_USER_ID": "user_3C6nqO3VVW4CtzZFYJYdNyrKlDc",
+                "LOCAL_DB_HOST": "127.0.0.1",
+                "LOCAL_DB_PORT": "3307"
             },
             "args": [
                 "run",
