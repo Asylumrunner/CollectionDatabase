@@ -129,6 +129,61 @@ def remove_item_from_collection(user_id=None):
         return create_response(True, 200, None, result)
 
 
+@app.route('/collection/items', methods=['PUT'])
+@authenticated_endpoint
+def add_items_to_collection(user_id=None):
+    data = request.get_json()
+    if not data or not isinstance(data, list) or len(data) == 0:
+        return create_response(False, 400, None, [], "Request body must be a non-empty list of items")
+
+    required_fields = ['title', 'media_type', 'release_year', 'img_link', 'original_api_id', 'created_by']
+    items = []
+    for i, item_data in enumerate(data):
+        missing_fields = [field for field in required_fields if field not in item_data]
+        if missing_fields:
+            return create_response(False, 400, None, [], f"Item at index {i} missing required fields: {', '.join(missing_fields)}")
+        items.append(Item(
+            id=item_data.get('id', ''),
+            title=item_data['title'],
+            media_type=item_data['media_type'],
+            release_year=item_data['release_year'],
+            img_link=item_data['img_link'],
+            original_api_id=item_data['original_api_id'],
+            created_by=item_data['created_by'],
+            isbn=item_data.get('isbn'),
+            printing_year=item_data.get('printing_year'),
+            lang=item_data.get('lang'),
+            summary=item_data.get('summary'),
+            duration=item_data.get('duration'),
+            min_players=item_data.get('min_players'),
+            max_players=item_data.get('max_players'),
+            episodes=item_data.get('episodes'),
+            platforms=item_data.get('platforms'),
+            tracklist=item_data.get('tracklist'),
+            genres=item_data.get('genres')
+        ))
+
+    result = workers['ITEM'].add_items_to_collection(user_id, items)
+
+    if not result['passed']:
+        return create_response(False, 500, None, [], result)
+    return create_response(True, 200, None, result)
+
+
+@app.route('/collection/items', methods=['DELETE'])
+@authenticated_endpoint
+def remove_items_from_collection(user_id=None):
+    data = request.get_json()
+    if not data or 'ids' not in data or not isinstance(data['ids'], list) or len(data['ids']) == 0:
+        return create_response(False, 400, None, [], "Request body must contain a non-empty 'ids' list")
+
+    result = workers['ITEM'].remove_items_from_collection(user_id, data['ids'])
+
+    if not result['passed']:
+        return create_response(False, 500, None, [], result)
+    return create_response(True, 200, None, result)
+
+
 @app.route('/webhooks/clerk', methods=['POST'])
 @verify_clerk_webhook
 def clerk_webhook(payload=None):

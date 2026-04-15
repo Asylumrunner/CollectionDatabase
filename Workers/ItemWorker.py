@@ -320,6 +320,111 @@ class ItemWorker(BaseWorker):
                 })
             }
 
+    def add_items_to_collection(self, user_id, items):
+        results = {
+            "passed": True,
+            "added": [],
+            "already_existed": [],
+            "failed": []
+        }
+
+        # Step 1: Add each item to the database (each needs its own transaction)
+        item_ids = []
+        for item in items:
+            add_item_response = self.add_item(item)
+            if not add_item_response["passed"]:
+                results["failed"].append({
+                    "item": {"title": item.title, "original_api_id": item.original_api_id},
+                    "error": add_item_response
+                })
+            else:
+                item_ids.append(int(add_item_response["Item"].id))
+
+        if not item_ids:
+            return results
+
+        # Step 2: Resolve user_id once, check existing, and bulk insert new collection entries
+        current_step = None
+        try:
+            with self.get_connection_context() as connection:
+                cursor = connection.cursor(dictionary=True)
+                try:
+                    current_step = "resolve_user_id"
+                    internal_user_id = resolve_user_id(cursor, user_id)
+
+                    current_step = "check_existing_collection_items"
+                    placeholders = ', '.join(['%s'] * len(item_ids))
+                    cursor.execute(
+                        f"SELECT item_id FROM collection_items WHERE user_id = %s AND item_id IN ({placeholders})",
+                        (internal_user_id, *item_ids)
+                    )
+                    existing_item_ids = {row['item_id'] for row in cursor.fetchall()}
+
+                    new_item_ids = [iid for iid in item_ids if iid not in existing_item_ids]
+                    results["already_existed"] = [iid for iid in item_ids if iid in existing_item_ids]
+
+                    if new_item_ids:
+                        current_step = "bulk_insert_collection_items"
+                        cursor.executemany(
+                            "INSERT INTO collection_items (item_id, user_id) VALUES (%s, %s)",
+                            [(iid, internal_user_id) for iid in new_item_ids]
+                        )
+                        connection.commit()
+
+                    results["added"] = new_item_ids
+                except Exception:
+                    connection.rollback()
+                    raise
+                finally:
+                    cursor.close()
+
+        except Exception as e:
+            results["passed"] = False
+            results["step_failed"] = current_step
+            results["exception"] = self._build_exception_dict(e, {
+                "function": "add_items_to_collection",
+                "step": current_step,
+                "user_id": user_id
+            })
+
+        return results
+
+    def remove_items_from_collection(self, user_id, item_ids):
+        current_step = None
+        try:
+            with self.get_connection_context() as connection:
+                cursor = connection.cursor(dictionary=True)
+                try:
+                    current_step = "resolve_user_id"
+                    internal_user_id = resolve_user_id(cursor, user_id)
+
+                    current_step = "delete_collection_items"
+                    placeholders = ', '.join(['%s'] * len(item_ids))
+                    cursor.execute(
+                        f"DELETE FROM collection_items WHERE user_id = %s AND item_id IN ({placeholders})",
+                        (internal_user_id, *item_ids)
+                    )
+                    connection.commit()
+
+                    return {"passed": True, "rows_deleted": cursor.rowcount}
+                except Exception:
+                    connection.rollback()
+                    raise
+                finally:
+                    cursor.close()
+
+        except Exception as e:
+            return {
+                "passed": False,
+                "step_failed": current_step,
+                "exception": self._build_exception_dict(e, {
+                    "function": "remove_items_from_collection",
+                    "step": current_step,
+                    "item_ids": item_ids,
+                    "user_id": user_id
+                })
+            }
+
     def add_item_to_collection(self, user_id, item):
         add_item_response = self.add_item(item)
         if not add_item_response["passed"]:
