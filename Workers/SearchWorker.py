@@ -97,13 +97,13 @@ class SearchWorker(BaseWorker):
             return self.lookup_rpg(name, pagination_key, search_options)
         elif media_type == "anime":
             return self.lookup_anime(name, pagination_key, search_options)
-        elif media_type == "music":
+        elif media_type == "album":
             return self.lookup_music(name, pagination_key, search_options)
         else:
             logging.error("media_type passed to LookupWorker not recognized")
             return {
                 "passed": False,
-                "exception": f'media_type {media_type} not recognized. Please use one of [book, movie, video_game, board_game, rpg, anime, music]'
+                "exception": f'media_type {media_type} not recognized. Please use one of [book, movie, video_game, board_game, rpg, anime, album]'
             }
         
     def lookup_book(self, title, pagination_key, search_options={}):
@@ -515,7 +515,7 @@ class SearchWorker(BaseWorker):
                     item = Item(
                         master_id,
                         full_master.title,
-                        'music',
+                        'album',
                         release_year,
                         img_link,
                         master_id,

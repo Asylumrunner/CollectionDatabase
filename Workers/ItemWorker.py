@@ -128,9 +128,10 @@ class ItemWorker(BaseWorker):
                                 INSERT IGNORE INTO creators (creator_name) VALUES (%s)
                             """
                             cursor.execute(creator_insert, (creator_name,))
+                            cursor.fetchall()
 
                             cursor.execute("SELECT creator_id FROM creators WHERE creator_name = %s", (creator_name,))
-                            creator_id = cursor.fetchone()['creator_id']
+                            creator_id = cursor.fetchall()[0]['creator_id']
 
                             cursor.execute(
                                 "INSERT INTO item_creators (item_id, creator_id) VALUES (%s, %s)",
@@ -143,9 +144,10 @@ class ItemWorker(BaseWorker):
                                 INSERT IGNORE INTO genres (genre_name) VALUES (%s)
                             """
                             cursor.execute(genre_insert, (genre_name,))
+                            cursor.fetchall()
 
                             cursor.execute("SELECT genre_id FROM genres WHERE genre_name = %s", (genre_name,))
-                            genre_id = cursor.fetchone()['genre_id']
+                            genre_id = cursor.fetchall()[0]['genre_id']
 
                             cursor.execute(
                                 "INSERT INTO item_genres (item_id, genre_id) VALUES (%s, %s)",
@@ -178,12 +180,13 @@ class ItemWorker(BaseWorker):
                                     "INSERT IGNORE INTO video_game_platforms (platform_name) VALUES (%s)",
                                     (platform_name,)
                                 )
+                                cursor.fetchall()
 
                                 cursor.execute(
                                     "SELECT platform_id FROM video_game_platforms WHERE platform_name = %s",
                                     (platform_name,)
                                 )
-                                platform_id = cursor.fetchone()['platform_id']
+                                platform_id = cursor.fetchall()[0]['platform_id']
 
                                 cursor.execute(
                                     "INSERT INTO game_platform_availabilities (game_id, platform_id) VALUES (%s, %s)",
