@@ -153,7 +153,8 @@ class SearchWorker(BaseWorker):
             for book in openLibResponse["docs"]:
                 title = getIfUseful(book, 'title')
                 release_year = getIfUseful(book, 'first_publish_year')
-                isbn = book['editions']['docs'][0]['isbn'][0] if 'isbn' in book['editions']['docs'][0] else ''
+                edition_docs = book.get('editions', {}).get('docs', [])
+                isbn = edition_docs[0]['isbn'][0] if edition_docs and 'isbn' in edition_docs[0] else ''
                 img_link = "https://covers.openlibrary.org/a/id/{}-M.jpg".format(book['cover_i']) if 'cover_i' in book else ''
                 created_by = getIfUseful(book, "author_name")
                 media_type = "book"
