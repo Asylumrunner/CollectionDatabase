@@ -26,16 +26,6 @@ class UserWorker(BaseWorker):
         }
 
     def create_user(self, clerk_user_id: str, username: str) -> dict:
-        """
-        Create a new user in the database.
-
-        Args:
-            clerk_user_id: The Clerk-provided user ID (e.g., 'user_xxx')
-            username: The user's display name or email
-
-        Returns:
-            dict with 'passed' boolean and either user info or 'exception'
-        """
         try:
             with self.get_connection_context() as connection:
                 cursor = connection.cursor(dictionary=True)
@@ -84,15 +74,6 @@ class UserWorker(BaseWorker):
             }
 
     def delete_user(self, clerk_user_id: str) -> dict:
-        """
-        Delete a user and all associated data from the database.
-
-        Args:
-            clerk_user_id: The Clerk-provided user ID
-
-        Returns:
-            dict with 'passed' boolean and status information
-        """
         try:
             with self.get_connection_context() as connection:
                 cursor = connection.cursor()

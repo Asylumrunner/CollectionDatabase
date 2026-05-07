@@ -4,6 +4,7 @@ from flask import request
 from Workers.SearchWorker import SearchWorker
 from Workers.ItemWorker import ItemWorker
 from Workers.UserWorker import UserWorker
+from Workers.ListWorker import ListWorker
 from DataClasses.item import Item
 from Utilities.AuthenticateRequest import authenticated_endpoint
 from Utilities.VerifyClerkWebhook import verify_clerk_webhook
@@ -22,6 +23,7 @@ def init():
     workers['SEARCH'] = SearchWorker()
     workers['ITEM'] = ItemWorker()
     workers['USER'] = UserWorker()
+    workers['LIST'] = ListWorker()
     return workers
 
 workers = init()
@@ -178,6 +180,20 @@ def remove_items_from_collection(user_id=None):
         return create_response(False, 400, None, [], "Request body must contain a non-empty 'ids' list")
 
     result = workers['ITEM'].remove_items_from_collection(user_id, data['ids'])
+
+    if not result['passed']:
+        return create_response(False, 500, None, [], result)
+    return create_response(True, 200, None, result)
+
+
+@app.route('/lists', methods=['POST'])
+@authenticated_endpoint
+def create_list(user_id=None):
+    data = request.get_json()
+    if not data or 'list_name' not in data:
+        return create_response(False, 400, None, [], "Missing required field: list_name")
+
+    result = workers['LIST'].create_list(user_id, data['list_name'])
 
     if not result['passed']:
         return create_response(False, 500, None, [], result)
