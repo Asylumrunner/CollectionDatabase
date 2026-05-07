@@ -35,7 +35,7 @@ def health_check():
 
 @app.route('/search/<title>', methods=['GET'])
 @authenticated_endpoint
-def lookup_data(title, user_id=None):
+def lookup_data(title, _user_id=None):
     media_type = request.args.get("media_type")
     pagination_key = request.args.get("page", None)
     logging.info(f'media_type provided with search request {media_type}')
@@ -184,6 +184,16 @@ def remove_items_from_collection(user_id=None):
     if not result['passed']:
         return create_response(False, 500, None, [], result)
     return create_response(True, 200, None, result)
+
+
+@app.route('/lists', methods=['GET'])
+@authenticated_endpoint
+def get_user_lists(user_id=None):
+    result = workers['LIST'].get_user_lists(user_id)
+
+    if not result['passed']:
+        return create_response(False, 500, None, [], result)
+    return create_response(True, 200, None, result['lists'])
 
 
 @app.route('/lists', methods=['POST'])
