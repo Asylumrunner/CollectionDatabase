@@ -186,6 +186,80 @@ def remove_items_from_collection(user_id=None):
     return create_response(True, 200, None, result)
 
 
+@app.route('/lists/names', methods=['GET'])
+@authenticated_endpoint
+def get_list_names(user_id=None):
+    result = workers['LIST'].get_list_names(user_id)
+
+    if not result['passed']:
+        return create_response(False, 500, None, [], result)
+    return create_response(True, 200, None, result['lists'])
+
+
+@app.route('/lists/<int:list_id>/item', methods=['PUT'])
+@authenticated_endpoint
+def add_item_to_list(list_id, user_id=None):
+    data = request.get_json()
+    if not data:
+        return create_response(False, 400, None, [], "No JSON body provided")
+
+    required_fields = ['title', 'media_type', 'release_year', 'img_link', 'original_api_id', 'created_by']
+    missing_fields = [field for field in required_fields if field not in data]
+    if missing_fields:
+        return create_response(False, 400, None, [], f"Missing required fields: {', '.join(missing_fields)}")
+
+    item = Item(
+        id=data.get('id', ''),
+        title=data['title'],
+        media_type=data['media_type'],
+        release_year=data['release_year'],
+        img_link=data['img_link'],
+        original_api_id=data['original_api_id'],
+        created_by=data['created_by'],
+        isbn=data.get('isbn'),
+        printing_year=data.get('printing_year'),
+        lang=data.get('lang'),
+        summary=data.get('summary'),
+        duration=data.get('duration'),
+        min_players=data.get('min_players'),
+        max_players=data.get('max_players'),
+        episodes=data.get('episodes'),
+        platforms=data.get('platforms'),
+        tracklist=data.get('tracklist'),
+        genres=data.get('genres')
+    )
+
+    add_item_result = workers['ITEM'].add_item(item)
+    if not add_item_result['passed']:
+        return create_response(False, 500, None, [], add_item_result)
+
+    item_id = add_item_result['Item'].id
+
+    list_result = workers['LIST'].add_item_to_list(user_id, list_id, item_id)
+    if not list_result['passed']:
+        return create_response(False, 500, None, [], list_result)
+    if list_result['not_found']:
+        return create_response(False, 404, None, [], "List not found")
+    return create_response(True, 200, None, list_result)
+
+
+@app.route('/lists/<int:list_id>', methods=['GET'])
+@authenticated_endpoint
+def get_list(list_id, user_id=None):
+    try:
+        page = int(request.args.get('page', 1))
+    except ValueError:
+        return create_response(False, 400, None, [], "page must be an integer")
+
+    result = workers['LIST'].get_list(user_id, list_id, page)
+
+    if not result['passed']:
+        return create_response(False, 500, None, [], result)
+    if result['not_found']:
+        return create_response(False, 404, None, [], "List not found")
+    return create_response(True, 200, result['next_page'], [asdict(item) for item in result['items']])
+
+
 @app.route('/lists', methods=['GET'])
 @authenticated_endpoint
 def get_user_lists(user_id=None):
