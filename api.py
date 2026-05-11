@@ -35,7 +35,7 @@ def health_check():
 
 @app.route('/search/<title>', methods=['GET'])
 @authenticated_endpoint
-def lookup_data(title, _user_id=None):
+def lookup_data(title, user_id=None):
     media_type = request.args.get("media_type")
     pagination_key = request.args.get("page", None)
     logging.info(f'media_type provided with search request {media_type}')
