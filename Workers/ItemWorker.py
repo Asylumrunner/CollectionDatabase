@@ -25,9 +25,12 @@ class ItemWorker(BaseWorker):
         }
 
     def check_item(self, media_type, original_api_id):
+        media_type_id = self.media_type_mappings.get(media_type)
+        if media_type_id is None:
+            return None
         with self.get_cursor_context(dictionary=True) as cursor:
             query = "SELECT id FROM items WHERE media_type = %s AND original_api_id = %s"
-            cursor.execute(query, (media_type, original_api_id))
+            cursor.execute(query, (media_type_id, original_api_id))
             result = cursor.fetchone()
             return result['id'] if result else None
 

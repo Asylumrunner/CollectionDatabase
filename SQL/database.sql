@@ -26,7 +26,8 @@ CREATE TABLE IF NOT EXISTS items (
     summary VARCHAR(1024),
     PRIMARY KEY (id),
     FOREIGN KEY (media_type)
-        REFERENCES media_types(id)
+        REFERENCES media_types(id),
+    UNIQUE KEY uq_origID_type (original_api_id, media_type)
 );
 
 CREATE TABLE IF NOT EXISTS creators (
