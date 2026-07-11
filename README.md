@@ -6,7 +6,8 @@ A database application for cataloging my collection of physical media, powered b
 2. [Tech Stack](https://www.github.com/Asylumrunner/CollectionDatabase#tech-stack)
 3. [APIs In Use](https://www.github.com/Asylumrunner/CollectionDatabase#apis-in-use)
 4. [Architecture](https://www.github.com/Asylumrunner/CollectionDatabase#architecture)
-5. [Endpoint Documentation](https://www.github.com/Asylumrunner/CollectionDatabase#endpoint-documentation)
+5. [Local Development](https://www.github.com/Asylumrunner/CollectionDatabase#local-development)
+6. [Endpoint Documentation](https://www.github.com/Asylumrunner/CollectionDatabase#endpoint-documentation)
 
 ## Background
 Like a lot of people with nerdy sensibilities, I own a lot of physical media, from video games to movies to books to tabletop RPGs to board and card games. I've found that having a large digital record of this collection is fairly useful for a variety of reasons, including but not limited to:
@@ -42,6 +43,30 @@ As you might know, Python doesn't _technically_ have interfaces. However, the AB
 The main API controller maintains a collection of these GenreController objects, maintained in a dictionary and keyed by the name of their genre ('books', 'movies', etc). Most API endpoints follow a pattern of grabbing the genre from the request path, and using that to invoke the correct GenreController to make the operation. Individual calls to the API must be of homogenous genre; that is, if you want to add a book, a movie, and a video game, that must be 3 API calls, however adding three books can be done in 1.
 
 This API makes pretty liberal use of multithreading, since there are a _lot_ of GET calls to random public APIs in here, so I didn't want to bottleneck on them as bad. It is, admittedly, a pretty first-pass implementation of concurrency, so it's possible greater optimizations could be made, but real-world performance is currently tolerably fast for me.
+
+## Local Development
+
+A `Dockerfile.mysql` is provided to spin up a local MySQL instance for development. It creates a database named `collectionDB` with the root password `yourpassword`, matching the defaults in `local_db_config.json`.
+
+**Build the image:**
+```bash
+docker build -f Dockerfile.mysql -t collectiondb-mysql .
+```
+
+**Run the container:**
+```bash
+docker run -p 3306:3306 collectiondb-mysql
+```
+
+The database will be available at `localhost:3306`. From there, connect with your preferred MySQL client and run `SQL/database.sql` to initialize the schema.
+
+To override the default credentials at runtime:
+```bash
+docker run -p 3306:3306 \
+  -e MYSQL_ROOT_PASSWORD=yourpassword \
+  -e MYSQL_DATABASE=collectionDB \
+  collectiondb-mysql
+```
 
 ## Endpoint Documentation
 
