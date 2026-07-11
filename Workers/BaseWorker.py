@@ -2,11 +2,14 @@ from abc import ABC, abstractmethod
 from contextlib import contextmanager
 from Workers.secrets import secrets
 from mysql.connector import pooling, Error
+import json
 import logging
 import os
 
 # Set up logging
 logger = logging.getLogger(__name__)
+
+_LOCAL_CONFIG_PATH = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'local_db_config.json')
 
 class BaseWorker(ABC):
     database = None
@@ -20,8 +23,21 @@ class BaseWorker(ABC):
             return
 
         try:
-            db_host = os.environ.get('LOCAL_DB_HOST', secrets['database_endpoint'])
-            db_port = int(os.environ.get('LOCAL_DB_PORT', 3306))
+            if os.path.exists(_LOCAL_CONFIG_PATH):
+                with open(_LOCAL_CONFIG_PATH) as f:
+                    local_config = json.load(f)
+                db_host = local_config['host']
+                db_port = int(local_config.get('port', 3306))
+                db_name = local_config['database']
+                db_user = local_config['username']
+                db_password = local_config['password']
+                logger.info("Using local database config")
+            else:
+                db_host = secrets['database_endpoint']
+                db_port = 3306
+                db_name = secrets['collection_database_name']
+                db_user = secrets['database_username']
+                db_password = secrets['database_password']
 
             cls._connection_pool = pooling.MySQLConnectionPool(
                 pool_name="collection_pool",
@@ -29,9 +45,9 @@ class BaseWorker(ABC):
                 pool_reset_session=True,
                 host=db_host,
                 port=db_port,
-                database=secrets['collection_database_name'],
-                user=secrets['database_username'],
-                password=secrets['database_password']
+                database=db_name,
+                user=db_user,
+                password=db_password
             )
             cls._pool_initialized = True
             logger.info("Database connection pool initialized successfully")

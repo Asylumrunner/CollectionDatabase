@@ -1,5 +1,6 @@
 secrets.py
 secrets
+local_db_config.json
 idea
 .idea
 .idea/
