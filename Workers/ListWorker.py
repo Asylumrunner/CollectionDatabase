@@ -124,6 +124,7 @@ class ListWorker(BaseWorker):
                     "page": page
                 })
             }
+        
 
     def get_list_names(self, user_id):
         current_step = None
@@ -297,5 +298,89 @@ class ListWorker(BaseWorker):
                     "step": current_step,
                     "user_id": user_id,
                     "list_name": list_name
+                })
+            }
+        
+    def delete_list(self, user_id, list_id):
+        current_step = None
+        try:
+            with self.get_connection_context() as connection:
+                cursor = connection.cursor(dictionary=True)
+                try:
+                    current_step = "resolve_user_id"
+                    internal_user_id = resolve_user_id(cursor, user_id)
+
+                    current_step = "verify_list_ownership"
+                    cursor.execute(
+                        "SELECT list_id FROM user_lists WHERE list_id = %s AND user_id = %s",
+                        (list_id, internal_user_id)
+                    )
+                    if not cursor.fetchone():
+                        return {"passed": True, "not_found": True}
+
+                    current_step = "delete_list_items"
+                    cursor.execute(
+                        "DELETE FROM list_items WHERE list_id = %s",
+                        (list_id,)
+                    )
+
+                    current_step = "delete_list"
+                    cursor.execute(
+                        "DELETE FROM user_lists WHERE list_id = %s AND user_id = %s",
+                        (list_id, internal_user_id)
+                    )
+                    connection.commit()
+
+                    return {"passed": True, "not_found": False}
+                except Exception:
+                    connection.rollback()
+                    raise
+                finally:
+                    cursor.close()
+
+        except Exception as e:
+            return {
+                "passed": False,
+                "step_failed": current_step,
+                "exception": self._build_exception_dict(e, {
+                    "function": "delete_list",
+                    "step": current_step,
+                    "user_id": user_id,
+                    "list_id": list_id
+                })
+            }
+
+    def change_list_name(self, user_id, list_id, new_list_name):
+        current_step = None
+        try:
+            with self.get_connection_context() as connection:
+                cursor = connection.cursor(dictionary=True)
+                try:
+                    current_step = "resolve_user_id"
+                    internal_user_id = resolve_user_id(cursor, user_id)
+
+                    current_step = "rename_list"
+                    cursor.execute(
+                        "UPDATE user_lists SET list_name = %s WHERE list_id = %s AND user_id = %s",
+                        (new_list_name, list_id, internal_user_id)
+                    )
+                    connection.commit()
+                    return {"passed": True, "list_id": list_id, "list_name": new_list_name}
+                except Exception:
+                    connection.rollback()
+                    raise
+                finally:
+                    cursor.close()
+            
+        except Exception as e:
+            return {
+                "passed": False,
+                "step_failed": current_step,
+                "exception": self._build_exception_dict(e, {
+                    "function": "change_list_name",
+                    "step": current_step,
+                    "user_id": user_id,
+                    "list_id": list_id,
+                    "new_list_name": new_list_name
                 })
             }

@@ -259,6 +259,32 @@ def get_list(list_id, user_id=None):
         return create_response(False, 404, None, [], "List not found")
     return create_response(True, 200, result['next_page'], [asdict(item) for item in result['items']])
 
+@app.route('/lists/<int:list_id>/rename', methods=['PUT'])
+@authenticated_endpoint
+def rename_list(list_id, user_id=None):
+    data = request.get_json()
+    if not data or 'list_name' not in data:
+        return create_response(False, 400, None, [], "Missing required field: list_name")
+
+    result = workers['LIST'].change_list_name(user_id, list_id, data['list_name'])
+
+    if not result['passed']:
+        return create_response(False, 500, None, [], result)
+    return create_response(True, 200, None, result)
+
+
+
+@app.route('/lists/<int:list_id>', methods=['DELETE'])
+@authenticated_endpoint
+def delete_list(list_id, user_id=None):
+    result = workers['LIST'].delete_list(user_id, list_id)
+
+    if not result['passed']:
+        return create_response(False, 500, None, [], result)
+    if result['not_found']:
+        return create_response(False, 404, None, [], "List not found")
+    return create_response(True, 200, None, [])
+
 
 @app.route('/lists', methods=['GET'])
 @authenticated_endpoint
