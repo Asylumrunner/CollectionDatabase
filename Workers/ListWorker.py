@@ -236,7 +236,7 @@ class ListWorker(BaseWorker):
                         (list_id, item_id)
                     )
                     if cursor.fetchone():
-                        return {"passed": True, "not_found": False, "already_exists": True}
+                        return {"passed": True, "not_found": False, "already_exists": True, "item_id": item_id}
 
                     current_step = "insert_list_item"
                     cursor.execute(
@@ -245,7 +245,7 @@ class ListWorker(BaseWorker):
                     )
                     connection.commit()
 
-                    return {"passed": True, "not_found": False, "already_exists": False}
+                    return {"passed": True, "not_found": False, "already_exists": False, "item_id": item_id}
                 except Exception:
                     connection.rollback()
                     raise
@@ -258,6 +258,84 @@ class ListWorker(BaseWorker):
                 "step_failed": current_step,
                 "exception": self._build_exception_dict(e, {
                     "function": "add_item_to_list",
+                    "step": current_step,
+                    "user_id": user_id,
+                    "list_id": list_id,
+                    "item_id": item_id
+                })
+            }
+
+    def get_lists_containing_item(self, user_id, item_id):
+        current_step = None
+        try:
+            with self.get_cursor_context(dictionary=True) as cursor:
+                current_step = "resolve_user_id"
+                internal_user_id = resolve_user_id(cursor, user_id)
+
+                current_step = "fetch_lists_containing_item"
+                cursor.execute(
+                    """
+                    SELECT ul.list_id, ul.list_name
+                    FROM user_lists ul
+                    INNER JOIN list_items li ON li.list_id = ul.list_id
+                    WHERE ul.user_id = %s AND li.item_id = %s
+                    ORDER BY ul.list_name
+                    """,
+                    (internal_user_id, item_id)
+                )
+                rows = cursor.fetchall()
+
+            return {"passed": True, "lists": rows}
+
+        except Exception as e:
+            return {
+                "passed": False,
+                "step_failed": current_step,
+                "exception": self._build_exception_dict(e, {
+                    "function": "get_lists_containing_item",
+                    "step": current_step,
+                    "user_id": user_id,
+                    "item_id": item_id
+                })
+            }
+
+    def remove_item_from_list(self, user_id, list_id, item_id):
+        current_step = None
+        try:
+            with self.get_connection_context() as connection:
+                cursor = connection.cursor(dictionary=True)
+                try:
+                    current_step = "resolve_user_id"
+                    internal_user_id = resolve_user_id(cursor, user_id)
+
+                    current_step = "verify_list_ownership"
+                    cursor.execute(
+                        "SELECT list_id FROM user_lists WHERE list_id = %s AND user_id = %s",
+                        (list_id, internal_user_id)
+                    )
+                    if not cursor.fetchone():
+                        return {"passed": True, "not_found": True}
+
+                    current_step = "delete_list_item"
+                    cursor.execute(
+                        "DELETE FROM list_items WHERE list_id = %s AND item_id = %s",
+                        (list_id, item_id)
+                    )
+                    connection.commit()
+
+                    return {"passed": True, "not_found": False}
+                except Exception:
+                    connection.rollback()
+                    raise
+                finally:
+                    cursor.close()
+
+        except Exception as e:
+            return {
+                "passed": False,
+                "step_failed": current_step,
+                "exception": self._build_exception_dict(e, {
+                    "function": "remove_item_from_list",
                     "step": current_step,
                     "user_id": user_id,
                     "list_id": list_id,

@@ -243,6 +243,31 @@ def add_item_to_list(list_id, user_id=None):
     return create_response(True, 200, None, list_result)
 
 
+@app.route('/lists/item/<int:item_id>', methods=['GET'])
+@authenticated_endpoint
+def get_lists_containing_item(item_id, user_id=None):
+    result = workers['LIST'].get_lists_containing_item(user_id, item_id)
+
+    if not result['passed']:
+        return create_response(False, 500, None, [], result)
+    return create_response(True, 200, None, result['lists'])
+
+
+@app.route('/lists/<int:list_id>/item', methods=['DELETE'])
+@authenticated_endpoint
+def remove_item_from_list(list_id, user_id=None):
+    data = request.get_json()
+    if not data or 'id' not in data:
+        return create_response(False, 400, None, [], "Missing required field: id")
+
+    list_result = workers['LIST'].remove_item_from_list(user_id, list_id, data['id'])
+    if not list_result['passed']:
+        return create_response(False, 500, None, [], list_result)
+    if list_result['not_found']:
+        return create_response(False, 404, None, [], "List not found")
+    return create_response(True, 200, None, list_result)
+
+
 @app.route('/lists/<int:list_id>', methods=['GET'])
 @authenticated_endpoint
 def get_list(list_id, user_id=None):
