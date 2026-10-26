@@ -13,6 +13,7 @@ from benedict import benedict
 from datetime import datetime
 import traceback
 import sys
+import time
 
 class SearchWorker(BaseWorker):
     def __init__(self):
@@ -86,26 +87,43 @@ class SearchWorker(BaseWorker):
     def search_item(self, name, media_type, pagination_key=None, search_options=None):
         pagination_key = pagination_key if pagination_key else 1
         search_options = search_options if search_options else {}
-        if media_type == "book":
-            return self.lookup_book(name, pagination_key, search_options)
-        elif media_type == "movie":
-            return self.lookup_movie(name, pagination_key, search_options)
-        elif media_type == "video_game":
-            return self.lookup_video_game(name, pagination_key, search_options)
-        elif media_type == "board_game":
-            return self.lookup_board_game(name, pagination_key, search_options)
-        elif media_type == "rpg":
-            return self.lookup_rpg(name, pagination_key, search_options)
-        elif media_type == "anime":
-            return self.lookup_anime(name, pagination_key, search_options)
-        elif media_type == "album":
-            return self.lookup_music(name, pagination_key, search_options)
-        else:
+        lookups = {
+            "book": self.lookup_book,
+            "movie": self.lookup_movie,
+            "video_game": self.lookup_video_game,
+            "board_game": self.lookup_board_game,
+            "rpg": self.lookup_rpg,
+            "anime": self.lookup_anime,
+            "album": self.lookup_music,
+        }
+        if media_type not in lookups:
             logging.error("media_type passed to LookupWorker not recognized")
             return {
                 "passed": False,
                 "exception": f'media_type {media_type} not recognized. Please use one of [book, movie, video_game, board_game, rpg, anime, album]'
             }
+
+        logging.info(f"Search started: media_type={media_type} query={name!r} page={pagination_key} search_options={search_options}")
+        start = time.perf_counter()
+        response = None
+        try:
+            response = lookups[media_type](name, pagination_key, search_options)
+            return response
+        finally:
+            self._log_search_result(name, media_type, pagination_key, search_options, response, time.perf_counter() - start)
+
+    def _log_search_result(self, name, media_type, pagination_key, search_options, response, elapsed):
+        summary = f"media_type={media_type} query={name!r} page={pagination_key} search_options={search_options} duration_ms={elapsed * 1000:.0f}"
+        if response is None:
+            # Lookup raised instead of returning a response dict
+            logging.error(f"Search crashed: {summary}")
+        elif response.get("passed"):
+            logging.info(f"Search succeeded: {summary} item_count={len(response.get('items', []))} next_page={response.get('next_page')}")
+        else:
+            exception = response.get("exception")
+            error_type = exception.get("error_type") if isinstance(exception, dict) else None
+            error_message = exception.get("error_message") if isinstance(exception, dict) else exception
+            logging.warning(f"Search failed: {summary} error_type={error_type} error_message={error_message!r}")
         
     def lookup_book(self, title, pagination_key, search_options={}):
         response = {"items": [], "passed": False}
