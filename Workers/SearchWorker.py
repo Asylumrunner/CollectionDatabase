@@ -20,18 +20,16 @@ class SearchWorker(BaseWorker):
         self.jikan_client = Jikan()
 
         # Used for Board Game Lookup
-        self.bg_lookup_req_template = "https://boardgamegeek.com/xmlapi2/search?query={}&type=boardgame"
-        self.bg_individual_item_template = "https://boardgamegeek.com/xmlapi2/thing?id={}"
-        self.bgg_header = {'Authorization': "Bearer {}".format(secrets['BGG_API_Key'])}
+        self.bgg_base_url = "https://boardgamegeek.com/xmlapi2"
+        self.bgg_header = {'Authorization': f"Bearer {secrets['BGG_API_Key']}"}
 
         # Used for Book Lookup
-        self.book_lookup_req_template = "https://openlibrary.org/search.json?q={}&page={}&fields=key,title,author_name,cover_i,first_publish_year,editions,editions.isbn,editions.publish_date"
+        self.book_lookup_url = "https://openlibrary.org/search.json"
+        self.book_lookup_fields = "key,title,author_name,cover_i,first_publish_year,editions,editions.isbn,editions.publish_date"
 
         # Used for Movie Lookup
         self.MDB_API_KEY = secrets['MovieDB_Key']
-        self.movie_lookup_req_template = "https://api.themoviedb.org/3/search/movie?api_key={}&query={}&page={}"
-        self.movie_lookup_template = "https://api.themoviedb.org/3/movie/{}?api_key={}"
-        self.movie_credits_lookup_template = "https://api.themoviedb.org/3/movie/{}/credits?api_key={}"
+        self.tmdb_base_url = "https://api.themoviedb.org/3"
 
         # Used for Music Lookup - Discogs API
         self.DISCOGS_USER_TOKEN = secrets['Discogs_Token']
@@ -41,14 +39,13 @@ class SearchWorker(BaseWorker):
         )
 
         # Used for RPG Lookup
-        self.rpg_lookup_req_template = "https://rpggeek.com/xmlapi2/search?query={}&type=rpgitem"
-        self.rpg_individual_item_template = "https://rpggeek.com/xmlapi2/thing?id={}"
+        self.rpggeek_base_url = "https://rpggeek.com/xmlapi2"
 
         # Used for Video Game Lookup
         self.IGDB_Client_ID = secrets['IGDB_Client_ID']
         self.IGDB_Client_Secret = secrets['IGDB_Client_Secret']
-        self.vg_lookup_req_template = "https://api.igdb.com/v4/games"
-        self.vg_lookup_req_body = "search \"{}\"; limit 25; offset {}; fields artworks,cover.image_id,created_at,first_release_date,involved_companies.company.name,language_supports,name,platforms.name,ports,status,summary;{}"
+        self.vg_lookup_url = "https://api.igdb.com/v4/games"
+        self.vg_lookup_fields = "artworks,cover.image_id,created_at,first_release_date,involved_companies.company.name,language_supports,name,platforms.name,ports,status,summary"
         try:
             logging.info("Fetching IGDB access token...")
             self.get_IGDB_Access_Token()
@@ -60,7 +57,11 @@ class SearchWorker(BaseWorker):
         super().__init__()
 
     def get_IGDB_Access_Token(self):
-        access_token_response = requests.post("https://id.twitch.tv/oauth2/token?client_id={}&client_secret={}&grant_type=client_credentials".format(self.IGDB_Client_ID, self.IGDB_Client_Secret)).json()
+        access_token_response = requests.post("https://id.twitch.tv/oauth2/token", params={
+            "client_id": self.IGDB_Client_ID,
+            "client_secret": self.IGDB_Client_Secret,
+            "grant_type": "client_credentials",
+        }).json()
         self.IGDB_Access_Token = access_token_response['access_token']
         self.IGDB_Token_Last_Set = datetime.now()
         self.IGDB_Time_Until_Token_Refresh = access_token_response['expires_in']
@@ -144,10 +145,8 @@ class SearchWorker(BaseWorker):
             # Combine all query parts with AND
             full_query = ' AND '.join(query_parts)
 
-            # Construct the URL with the combined query
-            base_url = self.book_lookup_req_template.format(full_query, pagination_key)
-
-            req = requests.get(base_url)
+            params = {"q": full_query, "page": pagination_key, "fields": self.book_lookup_fields}
+            req = requests.get(self.book_lookup_url, params=params)
             openLibResponse = req.json()
 
             for book in openLibResponse["docs"]:
@@ -155,7 +154,7 @@ class SearchWorker(BaseWorker):
                 release_year = getIfUseful(book, 'first_publish_year')
                 edition_docs = book.get('editions', {}).get('docs', [])
                 isbn = edition_docs[0]['isbn'][0] if edition_docs and 'isbn' in edition_docs[0] else ''
-                img_link = "https://covers.openlibrary.org/a/id/{}-M.jpg".format(book['cover_i']) if 'cover_i' in book else ''
+                img_link = f"https://covers.openlibrary.org/a/id/{book['cover_i']}-M.jpg" if 'cover_i' in book else ''
                 created_by = getIfUseful(book, "author_name")
                 media_type = "book"
                 item = Item(
@@ -165,7 +164,7 @@ class SearchWorker(BaseWorker):
             response["passed"] = True
             response["next_page"] = int(pagination_key) + 1
         except Exception as e:
-            logging.error("Exception in lookup for title {} in BookController: {}".format(title, e))
+            logging.error(f"Exception in lookup for title {title} in BookController: {e}")
             response["exception"] = self._build_exception_dict(e, {
                 "function": "lookup_book",
                 "title": title,
@@ -178,10 +177,11 @@ class SearchWorker(BaseWorker):
         return response
     
     def movie_lookup(self, guid):
-        movie = requests.get(self.movie_lookup_template.format(guid, self.MDB_API_KEY)).json()
+        params = {"api_key": self.MDB_API_KEY}
+        movie = requests.get(f"{self.tmdb_base_url}/movie/{guid}", params=params).json()
         movie_id = movie.get('id', '')
-        
-        credits = requests.get(self.movie_credits_lookup_template.format(guid, self.MDB_API_KEY)).json()
+
+        credits = requests.get(f"{self.tmdb_base_url}/movie/{guid}/credits", params=params).json()
         crew = getIfUseful(credits, 'crew', [])
         directors = []
         for crewmember in crew:
@@ -190,7 +190,7 @@ class SearchWorker(BaseWorker):
         
         title = getIfUseful( movie, 'title')
         release_year = movie.get('release_date', '0000')[:4]
-        img_link = "https://image.tmdb.org/t/p/w600_and_h900_bestv2{}".format(movie['poster_path']) if 'poster_path' in movie else None
+        img_link = f"https://image.tmdb.org/t/p/w600_and_h900_bestv2{movie['poster_path']}" if 'poster_path' in movie else None
         language = getIfUseful(movie, 'original_language')
         summary = getIfUseful(movie, 'overview')
         duration = getIfUseful(movie, 'runtime')
@@ -205,20 +205,19 @@ class SearchWorker(BaseWorker):
         search_options = search_options if search_options else {}
         response = {"items": [], "passed": False}
         try:
-            # Build base URL with required parameters
-            url = self.movie_lookup_req_template.format(self.MDB_API_KEY, title, pagination_key)
+            # Required parameters
+            params = {"api_key": self.MDB_API_KEY, "query": title, "page": pagination_key}
 
             # Add optional search parameters
-            # TMDB API available options: include_adult, language, primary_release_year, region, year
             recognized_params = [
                 'include_adult', 'language', 'primary_release_year', 'region', 'year'
             ]
 
             for param in recognized_params:
                 if param in search_options:
-                    url += f"&{param}={search_options[param]}"
+                    params[param] = search_options[param]
 
-            req = requests.get(url)
+            req = requests.get(f"{self.tmdb_base_url}/search/movie", params=params)
 
             with concurrent.futures.ThreadPoolExecutor() as executor:
                 lookups = executor.map(self.movie_lookup, [result['id'] for result in req.json()['results']])
@@ -229,13 +228,13 @@ class SearchWorker(BaseWorker):
             response["passed"] = True
             response["next_page"] = int(pagination_key) + 1
         except Exception as e:
-            logging.error("Exception in lookup for title {} in MovieController: {}".format(title, e))
+            logging.error(f"Exception in lookup for title {title} in MovieController: {e}")
             response["exception"] = self._build_exception_dict(e, {
                 "function": "lookup_movie",
                 "title": title,
                 "pagination_key": pagination_key,
                 "search_options": search_options,
-                "url": url if 'url' in locals() else None,
+                "url": req.url if 'req' in locals() else None,
                 "response_status": req.status_code if 'req' in locals() else None,
                 "response_text": req.text[:500] if 'req' in locals() else None
             })
@@ -275,10 +274,12 @@ class SearchWorker(BaseWorker):
             # Build complete where clause if we have conditions
             where_clause = f" where {' & '.join(where_conditions)};" if where_conditions else ""
 
-            # Build the request body
-            request_body = self.vg_lookup_req_body.format(title, (int(pagination_key)-1) * 25, where_clause)
+            # Build the request body, escaping quotes so the title can't break out of the search clause
+            safe_title = title.replace('\\', '\\\\').replace('"', '\\"')
+            offset = (int(pagination_key) - 1) * 25
+            request_body = f'search "{safe_title}"; limit 25; offset {offset}; fields {self.vg_lookup_fields};{where_clause}'
 
-            req = requests.post(self.vg_lookup_req_template, data=request_body, headers=self.IGDB_headers).json()
+            req = requests.post(self.vg_lookup_url, data=request_body, headers=self.IGDB_headers).json()
             for game in req:
                 guid = game["id"]
                 game_title = game["name"]
@@ -296,7 +297,7 @@ class SearchWorker(BaseWorker):
             response["passed"] = True
         except Exception as e:
             request_body_info = request_body if 'request_body' in locals() else 'Not yet formed'
-            logging.error("Exception in lookup for title {} in VideoGameController: {}. Request body: {}".format(title, e, request_body_info))
+            logging.error(f"Exception in lookup for title {title} in VideoGameController: {e}. Request body: {request_body_info}")
             response["exception"] = self._build_exception_dict(e, {
                 "function": "lookup_video_game",
                 "title": title,
@@ -310,7 +311,7 @@ class SearchWorker(BaseWorker):
         search_options = search_options if search_options else {}
         response = {"items": [], "passed": False}
         try:
-            req = requests.get(self.bg_lookup_req_template.format(title), headers=self.bgg_header)
+            req = requests.get(f"{self.bgg_base_url}/search", params={"query": title, "type": "boardgame"}, headers=self.bgg_header)
             root = ET.fromstring(req.content)
 
             with concurrent.futures.ThreadPoolExecutor() as executor:
@@ -322,7 +323,7 @@ class SearchWorker(BaseWorker):
             response['next_page'] = int(pagination_key) + 1
             response["passed"] = True
         except Exception as e:
-            logging.error("Exception in lookup for title {} in BoardGameController: {}".format(title, e))
+            logging.error(f"Exception in lookup for title {title} in BoardGameController: {e}")
             response["exception"] = self._build_exception_dict(e, {
                 "function": "lookup_board_game",
                 "title": title,
@@ -334,7 +335,7 @@ class SearchWorker(BaseWorker):
     def board_game_detail_lookup(self, child):
         item_dict = {}
         guid = child.get('id', '00000')
-        item_search_req = requests.get(self.bg_individual_item_template.format(guid), headers=self.bgg_header)
+        item_search_req = requests.get(f"{self.bgg_base_url}/thing", params={"id": guid}, headers=self.bgg_header)
         search_root = ET.fromstring(item_search_req.content).find('./item')
         if search_root:
             names = [name.get('value') for name in search_root.iterfind('name') if name.get('type') == 'primary']
@@ -356,7 +357,7 @@ class SearchWorker(BaseWorker):
         search_options = search_options if search_options else {}
         response = {"items": [], "passed": False}
         try:
-            req = requests.get(self.rpg_lookup_req_template.format(title), headers=self.bgg_header)
+            req = requests.get(f"{self.rpggeek_base_url}/search", params={"query": title, "type": "rpgitem"}, headers=self.bgg_header)
             root = ET.fromstring(req.content)
 
             with concurrent.futures.ThreadPoolExecutor() as executor:
@@ -369,7 +370,7 @@ class SearchWorker(BaseWorker):
             response['next_page'] = int(pagination_key) + 1
             response['passed'] = True
         except Exception as e:
-            logging.error("Exception in lookup for title {} in RPGController: {}".format(title, e))
+            logging.error(f"Exception in lookup for title {title} in RPGController: {e}")
             response["exception"] = self._build_exception_dict(e, {
                 "function": "lookup_rpg",
                 "title": title,
@@ -381,7 +382,7 @@ class SearchWorker(BaseWorker):
     def rpg_detail_lookup(self, child):
         item_dict = {}
         guid = child.get('id', '00000')
-        item_search_req = requests.get(self.rpg_individual_item_template.format(guid), headers=self.bgg_header)
+        item_search_req = requests.get(f"{self.rpggeek_base_url}/thing", params={"id": guid}, headers=self.bgg_header)
         search_root = ET.fromstring(item_search_req.content).find('./item')
         if search_root:
             names = [name.get('value', 'ERROR') for name in search_root.iterfind('name') if name.get('type', 'alternate') == 'primary']
@@ -438,7 +439,7 @@ class SearchWorker(BaseWorker):
             response['next_page'] = int(pagination_key) + 1
             response['passed'] = True
         except Exception as e:
-            logging.error("Exception in lookup for title {} in AnimeController: {}".format(title, e))
+            logging.error(f"Exception in lookup for title {title} in AnimeController: {e}")
             response["exception"] = self._build_exception_dict(e, {
                 "function": "lookup_anime",
                 "title": title,
@@ -534,7 +535,7 @@ class SearchWorker(BaseWorker):
             response['next_page'] = int(pagination_key) + 1
             response['passed'] = True
         except Exception as e:
-            logging.error("Exception in lookup for album {} in MusicController: {}".format(album, e))
+            logging.error(f"Exception in lookup for album {album} in MusicController: {e}")
             response["exception"] = self._build_exception_dict(e, {
                 "function": "lookup_music",
                 "album": album,

@@ -1,4 +1,3 @@
-from abc import ABC, abstractmethod
 from contextlib import contextmanager
 from Workers.secrets import secrets
 from mysql.connector import pooling, Error
@@ -11,8 +10,7 @@ logger = logging.getLogger(__name__)
 
 _LOCAL_CONFIG_PATH = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'local_db_config.json')
 
-class BaseWorker(ABC):
-    database = None
+class BaseWorker():
     media_type_mappings = {}
     _connection_pool = None
     _pool_initialized = False
