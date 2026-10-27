@@ -5,7 +5,9 @@ import sys
 import traceback
 import json
 import logging
-logging.basicConfig(level=logging.DEBUG, format='%(asctime)s %(levelname)s %(name)s: %(message)s')
+import time
+
+logger = logging.getLogger(__name__)
 
 
 class ListWorker(BaseWorker):
@@ -72,6 +74,7 @@ class ListWorker(BaseWorker):
     PAGE_SIZE = 25
 
     def get_list(self, user_id, list_id, page):
+        start = time.perf_counter()
         current_step = None
         try:
             with self.get_cursor_context(dictionary=True) as cursor:
@@ -85,6 +88,7 @@ class ListWorker(BaseWorker):
                 )
                 list_row = cursor.fetchone()
                 if not list_row:
+                    logger.warning(f"List not found for user: list_id={list_id} duration_ms={(time.perf_counter() - start) * 1000:.0f}")
                     return {"passed": True, "not_found": True}
 
                 current_step = "fetch_list_items"
@@ -104,6 +108,7 @@ class ListWorker(BaseWorker):
             has_more = len(rows) > self.PAGE_SIZE
             items = [self._row_to_item(row) for row in rows[:self.PAGE_SIZE]]
 
+            logger.info(f"Retrieved list: list_id={list_id} page={page} item_count={len(items)} has_more={has_more} duration_ms={(time.perf_counter() - start) * 1000:.0f}")
             return {
                 "passed": True,
                 "not_found": False,
@@ -113,6 +118,7 @@ class ListWorker(BaseWorker):
             }
 
         except Exception as e:
+            logger.error(f"Failed to get list: list_id={list_id} page={page} step={current_step} duration_ms={(time.perf_counter() - start) * 1000:.0f} {self._error_log_fields(e)}")
             return {
                 "passed": False,
                 "step_failed": current_step,
@@ -127,6 +133,7 @@ class ListWorker(BaseWorker):
         
 
     def get_list_names(self, user_id):
+        start = time.perf_counter()
         current_step = None
         try:
             with self.get_cursor_context(dictionary=True) as cursor:
@@ -140,9 +147,11 @@ class ListWorker(BaseWorker):
                 )
                 rows = cursor.fetchall()
 
+            logger.info(f"Retrieved list names: list_count={len(rows)} duration_ms={(time.perf_counter() - start) * 1000:.0f}")
             return {"passed": True, "lists": rows}
 
         except Exception as e:
+            logger.error(f"Failed to get list names: step={current_step} duration_ms={(time.perf_counter() - start) * 1000:.0f} {self._error_log_fields(e)}")
             return {
                 "passed": False,
                 "step_failed": current_step,
@@ -154,6 +163,7 @@ class ListWorker(BaseWorker):
             }
 
     def get_user_lists(self, user_id):
+        start = time.perf_counter()
         current_step = None
         try:
             with self.get_cursor_context(dictionary=True) as cursor:
@@ -197,12 +207,14 @@ class ListWorker(BaseWorker):
                 if row['id'] is not None:
                     lists[list_id]["img_links"].append(row['img_link'])
 
+            logger.info(f"Retrieved user lists: list_count={len(list_order)} duration_ms={(time.perf_counter() - start) * 1000:.0f}")
             return {
                 "passed": True,
                 "lists": [lists[lid] for lid in list_order]
             }
 
         except Exception as e:
+            logger.error(f"Failed to get user lists: step={current_step} duration_ms={(time.perf_counter() - start) * 1000:.0f} {self._error_log_fields(e)}")
             return {
                 "passed": False,
                 "step_failed": current_step,
@@ -214,6 +226,7 @@ class ListWorker(BaseWorker):
             }
 
     def add_item_to_list(self, user_id, list_id, item_id):
+        start = time.perf_counter()
         current_step = None
         try:
             with self.get_connection_context() as connection:
@@ -228,6 +241,7 @@ class ListWorker(BaseWorker):
                         (list_id, internal_user_id)
                     )
                     if not cursor.fetchone():
+                        logger.warning(f"List not found for user, skipping add: list_id={list_id} item_id={item_id} duration_ms={(time.perf_counter() - start) * 1000:.0f}")
                         return {"passed": True, "not_found": True}
 
                     current_step = "check_item_in_list"
@@ -236,6 +250,7 @@ class ListWorker(BaseWorker):
                         (list_id, item_id)
                     )
                     if cursor.fetchone():
+                        logger.info(f"Item already in list, skipping add: list_id={list_id} item_id={item_id} duration_ms={(time.perf_counter() - start) * 1000:.0f}")
                         return {"passed": True, "not_found": False, "already_exists": True, "item_id": item_id}
 
                     current_step = "insert_list_item"
@@ -245,6 +260,7 @@ class ListWorker(BaseWorker):
                     )
                     connection.commit()
 
+                    logger.info(f"Added item to list: list_id={list_id} item_id={item_id} duration_ms={(time.perf_counter() - start) * 1000:.0f}")
                     return {"passed": True, "not_found": False, "already_exists": False, "item_id": item_id}
                 except Exception:
                     connection.rollback()
@@ -253,6 +269,7 @@ class ListWorker(BaseWorker):
                     cursor.close()
 
         except Exception as e:
+            logger.error(f"Failed to add item to list: list_id={list_id} item_id={item_id} step={current_step} duration_ms={(time.perf_counter() - start) * 1000:.0f} {self._error_log_fields(e)}")
             return {
                 "passed": False,
                 "step_failed": current_step,
@@ -266,6 +283,7 @@ class ListWorker(BaseWorker):
             }
 
     def get_lists_containing_item(self, user_id, item_id):
+        start = time.perf_counter()
         current_step = None
         try:
             with self.get_cursor_context(dictionary=True) as cursor:
@@ -285,9 +303,11 @@ class ListWorker(BaseWorker):
                 )
                 rows = cursor.fetchall()
 
+            logger.info(f"Retrieved lists containing item: item_id={item_id} list_count={len(rows)} duration_ms={(time.perf_counter() - start) * 1000:.0f}")
             return {"passed": True, "lists": rows}
 
         except Exception as e:
+            logger.error(f"Failed to get lists containing item: item_id={item_id} step={current_step} duration_ms={(time.perf_counter() - start) * 1000:.0f} {self._error_log_fields(e)}")
             return {
                 "passed": False,
                 "step_failed": current_step,
@@ -300,6 +320,7 @@ class ListWorker(BaseWorker):
             }
 
     def remove_item_from_list(self, user_id, list_id, item_id):
+        start = time.perf_counter()
         current_step = None
         try:
             with self.get_connection_context() as connection:
@@ -314,6 +335,7 @@ class ListWorker(BaseWorker):
                         (list_id, internal_user_id)
                     )
                     if not cursor.fetchone():
+                        logger.warning(f"List not found for user, skipping remove: list_id={list_id} item_id={item_id} duration_ms={(time.perf_counter() - start) * 1000:.0f}")
                         return {"passed": True, "not_found": True}
 
                     current_step = "delete_list_item"
@@ -323,6 +345,7 @@ class ListWorker(BaseWorker):
                     )
                     connection.commit()
 
+                    logger.info(f"Removed item from list: list_id={list_id} item_id={item_id} rows_deleted={cursor.rowcount} duration_ms={(time.perf_counter() - start) * 1000:.0f}")
                     return {"passed": True, "not_found": False}
                 except Exception:
                     connection.rollback()
@@ -331,6 +354,7 @@ class ListWorker(BaseWorker):
                     cursor.close()
 
         except Exception as e:
+            logger.error(f"Failed to remove item from list: list_id={list_id} item_id={item_id} step={current_step} duration_ms={(time.perf_counter() - start) * 1000:.0f} {self._error_log_fields(e)}")
             return {
                 "passed": False,
                 "step_failed": current_step,
@@ -344,6 +368,7 @@ class ListWorker(BaseWorker):
             }
 
     def create_list(self, user_id, list_name):
+        start = time.perf_counter()
         current_step = None
         try:
             with self.get_connection_context() as connection:
@@ -360,6 +385,8 @@ class ListWorker(BaseWorker):
                     list_id = cursor.lastrowid
                     connection.commit()
 
+                    # List names are user-entered, so only the generated ID is logged
+                    logger.info(f"Created list: list_id={list_id} duration_ms={(time.perf_counter() - start) * 1000:.0f}")
                     return {"passed": True, "list_id": list_id, "list_name": list_name}
                 except Exception:
                     connection.rollback()
@@ -368,6 +395,7 @@ class ListWorker(BaseWorker):
                     cursor.close()
 
         except Exception as e:
+            logger.error(f"Failed to create list: step={current_step} duration_ms={(time.perf_counter() - start) * 1000:.0f} {self._error_log_fields(e)}")
             return {
                 "passed": False,
                 "step_failed": current_step,
@@ -380,6 +408,7 @@ class ListWorker(BaseWorker):
             }
         
     def delete_list(self, user_id, list_id):
+        start = time.perf_counter()
         current_step = None
         try:
             with self.get_connection_context() as connection:
@@ -394,6 +423,7 @@ class ListWorker(BaseWorker):
                         (list_id, internal_user_id)
                     )
                     if not cursor.fetchone():
+                        logger.warning(f"List not found for user, skipping delete: list_id={list_id} duration_ms={(time.perf_counter() - start) * 1000:.0f}")
                         return {"passed": True, "not_found": True}
 
                     current_step = "delete_list_items"
@@ -401,6 +431,7 @@ class ListWorker(BaseWorker):
                         "DELETE FROM list_items WHERE list_id = %s",
                         (list_id,)
                     )
+                    list_items_deleted = cursor.rowcount
 
                     current_step = "delete_list"
                     cursor.execute(
@@ -409,6 +440,7 @@ class ListWorker(BaseWorker):
                     )
                     connection.commit()
 
+                    logger.info(f"Deleted list: list_id={list_id} list_items={list_items_deleted} duration_ms={(time.perf_counter() - start) * 1000:.0f}")
                     return {"passed": True, "not_found": False}
                 except Exception:
                     connection.rollback()
@@ -417,6 +449,7 @@ class ListWorker(BaseWorker):
                     cursor.close()
 
         except Exception as e:
+            logger.error(f"Failed to delete list: list_id={list_id} step={current_step} duration_ms={(time.perf_counter() - start) * 1000:.0f} {self._error_log_fields(e)}")
             return {
                 "passed": False,
                 "step_failed": current_step,
@@ -429,6 +462,7 @@ class ListWorker(BaseWorker):
             }
 
     def change_list_name(self, user_id, list_id, new_list_name):
+        start = time.perf_counter()
         current_step = None
         try:
             with self.get_connection_context() as connection:
@@ -443,14 +477,17 @@ class ListWorker(BaseWorker):
                         (new_list_name, list_id, internal_user_id)
                     )
                     connection.commit()
+                    # rows_updated=0 means the list wasn't found for this user (or the name was unchanged)
+                    logger.info(f"Renamed list: list_id={list_id} rows_updated={cursor.rowcount} duration_ms={(time.perf_counter() - start) * 1000:.0f}")
                     return {"passed": True, "list_id": list_id, "list_name": new_list_name}
                 except Exception:
                     connection.rollback()
                     raise
                 finally:
                     cursor.close()
-            
+
         except Exception as e:
+            logger.error(f"Failed to rename list: list_id={list_id} step={current_step} duration_ms={(time.perf_counter() - start) * 1000:.0f} {self._error_log_fields(e)}")
             return {
                 "passed": False,
                 "step_failed": current_step,

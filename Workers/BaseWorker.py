@@ -93,6 +93,10 @@ class BaseWorker():
             if connection:
                 connection.close()
 
+    def _error_log_fields(self, e):
+        # Log error codes only; exception messages can echo user identifiers or row values back
+        return f"error_type={type(e).__name__} errno={getattr(e, 'errno', None)} sqlstate={getattr(e, 'sqlstate', None)}"
+
     def get_connection(self):
         if not self._pool_initialized:
             self._initialize_pool()

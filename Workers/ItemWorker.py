@@ -5,7 +5,9 @@ import sys
 import traceback
 import json
 import logging
-logging.basicConfig(level=logging.DEBUG, format='%(asctime)s %(levelname)s %(name)s: %(message)s')
+import time
+
+logger = logging.getLogger(__name__)
 
 
 class ItemWorker(BaseWorker):
@@ -95,6 +97,7 @@ class ItemWorker(BaseWorker):
         return None
 
     def add_item(self, item):
+        start = time.perf_counter()
         response = {"passed": True, "Item": None, "already_exists": False}
 
         try:
@@ -102,6 +105,7 @@ class ItemWorker(BaseWorker):
             if existing_item_id:
                 response["Item"] = self.get_item_by_id(existing_item_id)
                 response["already_exists"] = True
+                logger.info(f"Item already exists, skipping creation: item_id={existing_item_id} media_type={item.media_type} original_api_id={item.original_api_id} duration_ms={(time.perf_counter() - start) * 1000:.0f}")
                 return response
 
             with self.get_connection_context() as connection:
@@ -236,9 +240,11 @@ class ItemWorker(BaseWorker):
 
             # Fetch complete item AFTER releasing the connection to avoid pool exhaustion
             response["Item"] = self.get_item_by_id(item_id)
+            logger.info(f"Created item: item_id={item_id} media_type={item.media_type} original_api_id={item.original_api_id} duration_ms={(time.perf_counter() - start) * 1000:.0f}")
             return response
 
         except Exception as e:
+            logger.error(f"Failed to add item: media_type={item.media_type} original_api_id={item.original_api_id} duration_ms={(time.perf_counter() - start) * 1000:.0f} {self._error_log_fields(e)}")
             response["passed"] = False
             response["exception"] = self._build_exception_dict(e, {
                 "function": "add_item",
@@ -251,14 +257,12 @@ class ItemWorker(BaseWorker):
     PAGE_SIZE = 25
 
     def get_user_collection(self, user_id, page):
+        start = time.perf_counter()
         current_step = None
         try:
-            logging.info("Beginning collection retrieve")
             with self.get_cursor_context(dictionary=True) as cursor:
-                logging.info("Getting user ID")
                 current_step = "resolve_user_id"
                 internal_user_id = resolve_user_id(cursor, user_id)
-                logging.info("Resolved user ID")
 
                 current_step = "fetch_collection"
                 offset = (page - 1) * self.PAGE_SIZE
@@ -271,10 +275,10 @@ class ItemWorker(BaseWorker):
                 """
                 cursor.execute(query, (internal_user_id, self.PAGE_SIZE + 1, offset))
                 rows = cursor.fetchall()
-            logging.info(f'Got {len(rows)} rows in user\'s collection')
             has_more = len(rows) > self.PAGE_SIZE
             items = [self._row_to_item(row) for row in rows[:self.PAGE_SIZE]]
 
+            logger.info(f"Retrieved collection: page={page} item_count={len(items)} has_more={has_more} duration_ms={(time.perf_counter() - start) * 1000:.0f}")
             return {
                 "passed": True,
                 "items": items,
@@ -282,6 +286,7 @@ class ItemWorker(BaseWorker):
             }
 
         except Exception as e:
+            logger.error(f"Failed to get collection: page={page} step={current_step} duration_ms={(time.perf_counter() - start) * 1000:.0f} {self._error_log_fields(e)}")
             return {
                 "passed": False,
                 "step_failed": current_step,
@@ -294,6 +299,7 @@ class ItemWorker(BaseWorker):
             }
 
     def remove_item_from_collection(self, user_id, item_id):
+        start = time.perf_counter()
         current_step = None
         try:
             with self.get_connection_context() as connection:
@@ -307,6 +313,7 @@ class ItemWorker(BaseWorker):
                     cursor.execute(delete_query, (item_id, internal_user_id))
                     connection.commit()
 
+                    logger.info(f"Removed item from collection: item_id={item_id} rows_deleted={cursor.rowcount} duration_ms={(time.perf_counter() - start) * 1000:.0f}")
                     return {"passed": True, "rows_deleted": cursor.rowcount}
                 except Exception:
                     connection.rollback()
@@ -315,6 +322,7 @@ class ItemWorker(BaseWorker):
                     cursor.close()
 
         except Exception as e:
+            logger.error(f"Failed to remove item from collection: item_id={item_id} step={current_step} duration_ms={(time.perf_counter() - start) * 1000:.0f} {self._error_log_fields(e)}")
             return {
                 "passed": False,
                 "step_failed": current_step,
@@ -327,6 +335,7 @@ class ItemWorker(BaseWorker):
             }
 
     def add_items_to_collection(self, user_id, items):
+        start = time.perf_counter()
         results = {
             "passed": True,
             "added": [],
@@ -347,6 +356,7 @@ class ItemWorker(BaseWorker):
                 item_ids.append(int(add_item_response["Item"].id))
 
         if not item_ids:
+            logger.warning(f"No items could be added, skipping collection insert: requested={len(items)} failed={len(results['failed'])} duration_ms={(time.perf_counter() - start) * 1000:.0f}")
             return results
 
         # Step 2: Resolve user_id once, check existing, and bulk insert new collection entries
@@ -385,6 +395,7 @@ class ItemWorker(BaseWorker):
                     cursor.close()
 
         except Exception as e:
+            logger.error(f"Failed to add items to collection: requested={len(items)} step={current_step} duration_ms={(time.perf_counter() - start) * 1000:.0f} {self._error_log_fields(e)}")
             results["passed"] = False
             results["step_failed"] = current_step
             results["exception"] = self._build_exception_dict(e, {
@@ -392,10 +403,13 @@ class ItemWorker(BaseWorker):
                 "step": current_step,
                 "user_id": user_id
             })
+            return results
 
+        logger.info(f"Added items to collection: requested={len(items)} added={len(results['added'])} already_existed={len(results['already_existed'])} failed={len(results['failed'])} duration_ms={(time.perf_counter() - start) * 1000:.0f}")
         return results
 
     def remove_items_from_collection(self, user_id, item_ids):
+        start = time.perf_counter()
         current_step = None
         try:
             with self.get_connection_context() as connection:
@@ -412,6 +426,7 @@ class ItemWorker(BaseWorker):
                     )
                     connection.commit()
 
+                    logger.info(f"Removed items from collection: requested={len(item_ids)} rows_deleted={cursor.rowcount} duration_ms={(time.perf_counter() - start) * 1000:.0f}")
                     return {"passed": True, "rows_deleted": cursor.rowcount}
                 except Exception:
                     connection.rollback()
@@ -420,6 +435,7 @@ class ItemWorker(BaseWorker):
                     cursor.close()
 
         except Exception as e:
+            logger.error(f"Failed to remove items from collection: requested={len(item_ids)} step={current_step} duration_ms={(time.perf_counter() - start) * 1000:.0f} {self._error_log_fields(e)}")
             return {
                 "passed": False,
                 "step_failed": current_step,
@@ -432,8 +448,10 @@ class ItemWorker(BaseWorker):
             }
 
     def add_item_to_collection(self, user_id, item):
+        start = time.perf_counter()
         add_item_response = self.add_item(item)
         if not add_item_response["passed"]:
+            # add_item has already logged the underlying error
             return {
                 "passed": False,
                 "step_failed": "add_item",
@@ -458,6 +476,7 @@ class ItemWorker(BaseWorker):
                     result = cursor.fetchone()
 
                     if result:
+                        logger.info(f"Item already in collection, skipping add: item_id={item_id} duration_ms={(time.perf_counter() - start) * 1000:.0f}")
                         return {
                             "passed": True,
                             "already_exists": True,
@@ -470,6 +489,7 @@ class ItemWorker(BaseWorker):
                     cursor.execute(insert_query, (item_id, internal_user_id))
                     connection.commit()
 
+                    logger.info(f"Added item to collection: item_id={item_id} duration_ms={(time.perf_counter() - start) * 1000:.0f}")
                     return {
                         "passed": True,
                         "already_exists": False,
@@ -483,6 +503,7 @@ class ItemWorker(BaseWorker):
                     cursor.close()
 
         except Exception as e:
+            logger.error(f"Failed to add item to collection: item_id={item_id} step={current_step} duration_ms={(time.perf_counter() - start) * 1000:.0f} {self._error_log_fields(e)}")
             return {
                 "passed": False,
                 "step_failed": current_step,
