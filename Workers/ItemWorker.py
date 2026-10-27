@@ -10,7 +10,7 @@ logging.basicConfig(level=logging.DEBUG, format='%(asctime)s %(levelname)s %(nam
 
 class ItemWorker(BaseWorker):
     def __init__(self):
-        print("Placeholder for the init function!")
+        pass
 
     def _build_exception_dict(self, exception, context_info):
         _exc_type, _exc_value, exc_traceback = sys.exc_info()

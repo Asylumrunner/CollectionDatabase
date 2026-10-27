@@ -343,6 +343,8 @@ def clerk_webhook(payload=None):
 
     event_type = payload.get('type')
     data = payload.get('data', {})
+    # Svix message ID; stable across retries and not tied to the user's identity
+    webhook_id = request.headers.get('svix-id')
 
     if event_type == 'user.created':
         clerk_user_id = data.get('id')
@@ -354,7 +356,7 @@ def clerk_webhook(payload=None):
             last_name = data.get('last_name', '')
             username = f"{first_name} {last_name}".strip() or 'Unknown'
 
-        result = workers['USER'].create_user(clerk_user_id, username)
+        result = workers['USER'].create_user(clerk_user_id, username, webhook_id)
 
         if result['passed']:
             return create_response(True, 200, None, result)
@@ -364,7 +366,7 @@ def clerk_webhook(payload=None):
     elif event_type == 'user.deleted':
         clerk_user_id = data.get('id')
 
-        result = workers['USER'].delete_user(clerk_user_id)
+        result = workers['USER'].delete_user(clerk_user_id, webhook_id)
 
         if result['passed']:
             return create_response(True, 200, None, result)

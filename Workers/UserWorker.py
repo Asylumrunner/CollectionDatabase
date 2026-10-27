@@ -3,13 +3,12 @@ from mysql.connector import Error
 import sys
 import traceback
 import logging
+import time
 
 logger = logging.getLogger(__name__)
 
 
 class UserWorker(BaseWorker):
-    """Worker class for handling user-related database operations."""
-
     def __init__(self):
         pass
 
@@ -25,7 +24,8 @@ class UserWorker(BaseWorker):
             "exception_args": exception.args if hasattr(exception, 'args') else None
         }
 
-    def create_user(self, clerk_user_id: str, username: str) -> dict:
+    def create_user(self, clerk_user_id: str, username: str, webhook_id: str = None) -> dict:
+        start = time.perf_counter()
         try:
             with self.get_connection_context() as connection:
                 cursor = connection.cursor(dictionary=True)
@@ -38,7 +38,7 @@ class UserWorker(BaseWorker):
                     existing = cursor.fetchone()
 
                     if existing:
-                        logger.info(f"User {clerk_user_id} already exists, skipping creation")
+                        logger.info(f"User already exists, skipping creation: webhook_id={webhook_id} duration_ms={(time.perf_counter() - start) * 1000:.0f}")
                         return {
                             'passed': True,
                             'clerk_user_id': clerk_user_id,
@@ -56,7 +56,7 @@ class UserWorker(BaseWorker):
                     )
                     connection.commit()
 
-                    logger.info(f"Successfully created user {clerk_user_id}")
+                    logger.info(f"Successfully created user: webhook_id={webhook_id} duration_ms={(time.perf_counter() - start) * 1000:.0f}")
                     return {
                         'passed': True,
                         'clerk_user_id': clerk_user_id,
@@ -67,13 +67,15 @@ class UserWorker(BaseWorker):
                     cursor.close()
 
         except Error as e:
-            logger.error(f"Failed to create user {clerk_user_id}: {e}")
+            # Log error codes only; MySQL error messages can echo row values back
+            logger.error(f"Failed to create user: webhook_id={webhook_id} duration_ms={(time.perf_counter() - start) * 1000:.0f} error_type={type(e).__name__} errno={e.errno} sqlstate={e.sqlstate}")
             return {
                 'passed': False,
                 'exception': self._build_exception_dict(e, {'clerk_user_id': clerk_user_id})
             }
 
-    def delete_user(self, clerk_user_id: str) -> dict:
+    def delete_user(self, clerk_user_id: str, webhook_id: str = None) -> dict:
+        start = time.perf_counter()
         try:
             with self.get_connection_context() as connection:
                 cursor = connection.cursor()
@@ -85,7 +87,7 @@ class UserWorker(BaseWorker):
                     )
                     row = cursor.fetchone()
                     if not row:
-                        logger.warning(f"User {clerk_user_id} not found for deletion")
+                        logger.warning(f"User not found for deletion: webhook_id={webhook_id} duration_ms={(time.perf_counter() - start) * 1000:.0f}")
                         return {
                             'passed': True,
                             'message': 'User not found (may have already been deleted)'
@@ -102,18 +104,21 @@ class UserWorker(BaseWorker):
                         """,
                         (user_id,)
                     )
+                    list_items_deleted = cursor.rowcount
 
                     # 2. Delete user's lists
                     cursor.execute(
                         "DELETE FROM user_lists WHERE user_id = %s",
                         (user_id,)
                     )
+                    lists_deleted = cursor.rowcount
 
                     # 3. Delete user's collection items
                     cursor.execute(
                         "DELETE FROM collection_items WHERE user_id = %s",
                         (user_id,)
                     )
+                    collection_items_deleted = cursor.rowcount
 
                     # 4. Delete the user
                     cursor.execute(
@@ -123,7 +128,7 @@ class UserWorker(BaseWorker):
 
                     connection.commit()
 
-                    logger.info(f"Successfully deleted user {clerk_user_id}")
+                    logger.info(f"Successfully deleted user: webhook_id={webhook_id} lists={lists_deleted} list_items={list_items_deleted} collection_items={collection_items_deleted} duration_ms={(time.perf_counter() - start) * 1000:.0f}")
                     return {
                         'passed': True,
                         'message': 'User deleted successfully'
@@ -132,7 +137,7 @@ class UserWorker(BaseWorker):
                     cursor.close()
 
         except Error as e:
-            logger.error(f"Failed to delete user {clerk_user_id}: {e}")
+            logger.error(f"Failed to delete user: webhook_id={webhook_id} duration_ms={(time.perf_counter() - start) * 1000:.0f} error_type={type(e).__name__} errno={e.errno} sqlstate={e.sqlstate}")
             return {
                 'passed': False,
                 'exception': self._build_exception_dict(e, {'clerk_user_id': clerk_user_id})
