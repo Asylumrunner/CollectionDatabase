@@ -1,0 +1,9 @@
+[run]
+omit =
+    Collections/*
+    Utilities/ValidateRequestInput.py
+    Workers/CollectionWorker.py
+    Workers/secrets.py
+
+[report]
+fail_under = 85

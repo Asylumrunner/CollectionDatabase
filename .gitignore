@@ -12,3 +12,6 @@ _pycache_/
 bootstrap-4.1.3-dist/
 datasets/
 venv/
+!requirements-dev.txt
+.coverage
+.pytest_cache/

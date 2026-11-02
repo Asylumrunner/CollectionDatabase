@@ -1,0 +1,55 @@
+{
+  "numFound": 175,
+  "docs": [
+    {
+      "author_name": [
+        "Frank Herbert"
+      ],
+      "cover_i": 11481354,
+      "first_publish_year": 1965,
+      "key": "/works/OL893414W",
+      "title": "Dune",
+      "editions": {
+        "numFound": 141,
+        "start": 0,
+        "numFoundExact": true,
+        "docs": [
+          {
+            "publish_date": [
+              "August 1, 1978"
+            ],
+            "isbn": [
+              "9780425038918",
+              "0425038912"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "author_name": [
+        "Frank Herbert"
+      ],
+      "cover_i": 980253,
+      "first_publish_year": 1969,
+      "key": "/works/OL893461W",
+      "title": "Dune Messiah",
+      "editions": {
+        "numFound": 88,
+        "start": 0,
+        "numFoundExact": true,
+        "docs": [
+          {
+            "publish_date": [
+              "July 15, 1987"
+            ],
+            "isbn": [
+              "9780441172696",
+              "0441172695"
+            ]
+          }
+        ]
+      }
+    }
+  ]
+}
