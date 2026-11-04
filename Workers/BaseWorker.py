@@ -35,6 +35,9 @@ class BaseWorker():
 
     @classmethod
     def _initialize_pool(cls):
+        # Lazily creates the shared pool on first use. Reads credentials from local_db_config.json
+        # if present (local dev), otherwise from secrets. Also loads media type mappings.
+        # Only a single worker should initialize the pool, they should all share one
         if cls._pool_initialized:
             return
 
@@ -75,6 +78,8 @@ class BaseWorker():
 
     @classmethod
     def _load_media_type_mappings(cls):
+        # Media type is a mapped value, which connects strings to int indexes
+        # Rather than maintaining these mappings in code, read them from the central table on launch
         connection = None
         cursor = None
         try:
@@ -94,10 +99,13 @@ class BaseWorker():
                 connection.close()
 
     def _error_log_fields(self, e):
+        # Formats a DB exception into safe, structured log fields for subclasses to use.
         # Log error codes only; exception messages can echo user identifiers or row values back
         return f"error_type={type(e).__name__} errno={getattr(e, 'errno', None)} sqlstate={getattr(e, 'sqlstate', None)}"
 
     def get_connection(self):
+        # Raw pool checkout. Caller is responsible for calling close() to return it;
+        # Prefer the context managers below.
         if not self._pool_initialized:
             self._initialize_pool()
 
@@ -114,6 +122,7 @@ class BaseWorker():
 
     @contextmanager
     def _checked_out_connection(self):
+        # Internal helper behind the public contexts: checks out a connection and always returns it to the pool.
         # Warns when a connection is slow to acquire or held for a long time
         acquire_start = time.perf_counter()
         connection = self.get_connection()
@@ -132,6 +141,7 @@ class BaseWorker():
 
     @contextmanager
     def get_connection_context(self):
+        # Yields a pooled connection. Use when you need multiple cursors or manual commit/rollback.
         try:
             with self._checked_out_connection() as connection:
                 yield connection
@@ -141,6 +151,8 @@ class BaseWorker():
 
     @contextmanager
     def get_cursor_context(self, dictionary=False):
+        # Yields a cursor on a pooled connection; cursor and connection are cleaned up on exit.
+        # Use for simple read queries. Does not commit. dictionary=True returns rows as dicts.
         try:
             with self._checked_out_connection() as connection:
                 cursor = connection.cursor(dictionary=dictionary)
