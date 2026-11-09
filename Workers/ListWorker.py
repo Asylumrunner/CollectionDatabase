@@ -1,8 +1,6 @@
 from Workers.BaseWorker import BaseWorker
 from DataClasses.item import Item
 from Utilities.ResolveUserId import resolve_user_id
-import sys
-import traceback
 import json
 import logging
 import time
@@ -13,18 +11,6 @@ logger = logging.getLogger(__name__)
 class ListWorker(BaseWorker):
     def __init__(self):
         pass
-
-    def _build_exception_dict(self, exception, context_info):
-        _exc_type, _exc_value, exc_traceback = sys.exc_info()
-
-        return {
-            "error_type": type(exception).__name__,
-            "error_message": str(exception),
-            "traceback": traceback.format_exc(),
-            "traceback_lines": traceback.format_tb(exc_traceback),
-            "context": context_info,
-            "exception_args": exception.args if hasattr(exception, 'args') else None
-        }
 
     def _row_to_item(self, row):
         creators = json.loads(row['creators']) if row['creators'] else []
@@ -122,17 +108,7 @@ class ListWorker(BaseWorker):
 
         except Exception as e:
             logger.error(f"Failed to get list: list_id={list_id} page={page} step={current_step} duration_ms={(time.perf_counter() - start) * 1000:.0f} {self._error_log_fields(e)}")
-            return {
-                "passed": False,
-                "step_failed": current_step,
-                "exception": self._build_exception_dict(e, {
-                    "function": "get_list",
-                    "step": current_step,
-                    "user_id": user_id,
-                    "list_id": list_id,
-                    "page": page
-                })
-            }
+            return self._failure_response(e, "get_list", current_step, user_id=user_id, list_id=list_id, page=page)
         
 
     def get_list_names(self, user_id):
@@ -155,15 +131,7 @@ class ListWorker(BaseWorker):
 
         except Exception as e:
             logger.error(f"Failed to get list names: step={current_step} duration_ms={(time.perf_counter() - start) * 1000:.0f} {self._error_log_fields(e)}")
-            return {
-                "passed": False,
-                "step_failed": current_step,
-                "exception": self._build_exception_dict(e, {
-                    "function": "get_list_names",
-                    "step": current_step,
-                    "user_id": user_id
-                })
-            }
+            return self._failure_response(e, "get_list_names", current_step, user_id=user_id)
 
     def get_user_lists(self, user_id):
         start = time.perf_counter()
@@ -218,15 +186,7 @@ class ListWorker(BaseWorker):
 
         except Exception as e:
             logger.error(f"Failed to get user lists: step={current_step} duration_ms={(time.perf_counter() - start) * 1000:.0f} {self._error_log_fields(e)}")
-            return {
-                "passed": False,
-                "step_failed": current_step,
-                "exception": self._build_exception_dict(e, {
-                    "function": "get_user_lists",
-                    "step": current_step,
-                    "user_id": user_id
-                })
-            }
+            return self._failure_response(e, "get_user_lists", current_step, user_id=user_id)
 
     def add_item_to_list(self, user_id, list_id, item_id):
         start = time.perf_counter()
@@ -273,17 +233,7 @@ class ListWorker(BaseWorker):
 
         except Exception as e:
             logger.error(f"Failed to add item to list: list_id={list_id} item_id={item_id} step={current_step} duration_ms={(time.perf_counter() - start) * 1000:.0f} {self._error_log_fields(e)}")
-            return {
-                "passed": False,
-                "step_failed": current_step,
-                "exception": self._build_exception_dict(e, {
-                    "function": "add_item_to_list",
-                    "step": current_step,
-                    "user_id": user_id,
-                    "list_id": list_id,
-                    "item_id": item_id
-                })
-            }
+            return self._failure_response(e, "add_item_to_list", current_step, user_id=user_id, list_id=list_id, item_id=item_id)
 
     def get_lists_containing_item(self, user_id, item_id):
         start = time.perf_counter()
@@ -311,16 +261,7 @@ class ListWorker(BaseWorker):
 
         except Exception as e:
             logger.error(f"Failed to get lists containing item: item_id={item_id} step={current_step} duration_ms={(time.perf_counter() - start) * 1000:.0f} {self._error_log_fields(e)}")
-            return {
-                "passed": False,
-                "step_failed": current_step,
-                "exception": self._build_exception_dict(e, {
-                    "function": "get_lists_containing_item",
-                    "step": current_step,
-                    "user_id": user_id,
-                    "item_id": item_id
-                })
-            }
+            return self._failure_response(e, "get_lists_containing_item", current_step, user_id=user_id, item_id=item_id)
 
     def remove_item_from_list(self, user_id, list_id, item_id):
         start = time.perf_counter()
@@ -358,17 +299,7 @@ class ListWorker(BaseWorker):
 
         except Exception as e:
             logger.error(f"Failed to remove item from list: list_id={list_id} item_id={item_id} step={current_step} duration_ms={(time.perf_counter() - start) * 1000:.0f} {self._error_log_fields(e)}")
-            return {
-                "passed": False,
-                "step_failed": current_step,
-                "exception": self._build_exception_dict(e, {
-                    "function": "remove_item_from_list",
-                    "step": current_step,
-                    "user_id": user_id,
-                    "list_id": list_id,
-                    "item_id": item_id
-                })
-            }
+            return self._failure_response(e, "remove_item_from_list", current_step, user_id=user_id, list_id=list_id, item_id=item_id)
 
     def create_list(self, user_id, list_name):
         start = time.perf_counter()
@@ -399,16 +330,7 @@ class ListWorker(BaseWorker):
 
         except Exception as e:
             logger.error(f"Failed to create list: step={current_step} duration_ms={(time.perf_counter() - start) * 1000:.0f} {self._error_log_fields(e)}")
-            return {
-                "passed": False,
-                "step_failed": current_step,
-                "exception": self._build_exception_dict(e, {
-                    "function": "create_list",
-                    "step": current_step,
-                    "user_id": user_id,
-                    "list_name": list_name
-                })
-            }
+            return self._failure_response(e, "create_list", current_step, user_id=user_id, list_name=list_name)
         
     def delete_list(self, user_id, list_id):
         start = time.perf_counter()
@@ -453,16 +375,7 @@ class ListWorker(BaseWorker):
 
         except Exception as e:
             logger.error(f"Failed to delete list: list_id={list_id} step={current_step} duration_ms={(time.perf_counter() - start) * 1000:.0f} {self._error_log_fields(e)}")
-            return {
-                "passed": False,
-                "step_failed": current_step,
-                "exception": self._build_exception_dict(e, {
-                    "function": "delete_list",
-                    "step": current_step,
-                    "user_id": user_id,
-                    "list_id": list_id
-                })
-            }
+            return self._failure_response(e, "delete_list", current_step, user_id=user_id, list_id=list_id)
 
     def change_list_name(self, user_id, list_id, new_list_name):
         start = time.perf_counter()
@@ -491,14 +404,4 @@ class ListWorker(BaseWorker):
 
         except Exception as e:
             logger.error(f"Failed to rename list: list_id={list_id} step={current_step} duration_ms={(time.perf_counter() - start) * 1000:.0f} {self._error_log_fields(e)}")
-            return {
-                "passed": False,
-                "step_failed": current_step,
-                "exception": self._build_exception_dict(e, {
-                    "function": "change_list_name",
-                    "step": current_step,
-                    "user_id": user_id,
-                    "list_id": list_id,
-                    "new_list_name": new_list_name
-                })
-            }
+            return self._failure_response(e, "change_list_name", current_step, user_id=user_id, list_id=list_id, new_list_name=new_list_name)

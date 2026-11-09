@@ -1,5 +1,6 @@
-"""U-ROW and U-EXC. `_row_to_item` and `_build_exception_dict` are copy-pasted between
-workers, so each case runs against every copy to catch them drifting apart."""
+"""U-ROW and U-EXC. `_row_to_item` is copy-pasted between workers, so each case runs
+against every copy to catch them drifting apart. `_failure_response` lives on BaseWorker
+and is checked through every worker to make sure none of them overrides it."""
 import pytest
 
 from Workers.ItemWorker import ItemWorker
@@ -60,17 +61,30 @@ def test_id_is_stringified(mapper):  # U-ROW-10
 
 
 @pytest.mark.parametrize("worker_class", [ItemWorker, ListWorker, UserWorker, SearchWorker])
-def test_build_exception_dict(worker_class):  # U-EXC-1
+def test_failure_response(worker_class):  # U-EXC-1
     # __new__ skips SearchWorker.__init__, which would request an IGDB token
     worker = worker_class.__new__(worker_class)
     try:
         raise ValueError("boom", "extra")
     except ValueError as e:
-        result = worker._build_exception_dict(e, {"function": "probe"})
+        caught = e
+    # Built outside the except block on purpose: the traceback must come from the exception itself
+    result = worker._failure_response(caught, "probe", "probe_step", list_id=3)
 
-    assert result["error_type"] == "ValueError"
-    assert "boom" in result["error_message"]
-    assert result["context"] == {"function": "probe"}
-    assert result["exception_args"] == ("boom", "extra")
-    assert "ValueError" in result["traceback"]
-    assert result["traceback_lines"]
+    assert set(result) == {"passed", "step_failed", "exception"}
+    assert result["passed"] is False
+    assert result["step_failed"] == "probe_step"
+    exception = result["exception"]
+    assert exception["error_type"] == "ValueError"
+    assert "boom" in exception["error_message"]
+    assert exception["context"] == {"function": "probe", "step": "probe_step", "list_id": 3}
+    assert exception["exception_args"] == ("boom", "extra")
+    assert "ValueError" in exception["traceback"]
+    assert exception["traceback_lines"]
+
+
+def test_failure_response_without_a_traceback():  # U-EXC-2
+    # SearchWorker reports an unknown media type with an exception that was never raised
+    result = ItemWorker()._failure_response(ValueError("bad"), "probe", "probe_step")
+    assert result["exception"]["error_message"] == "bad"
+    assert result["exception"]["traceback_lines"] == []

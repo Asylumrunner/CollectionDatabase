@@ -563,13 +563,7 @@ def test_no_results_end_paging(search_worker, rsps, media_type):  # U-PAGE-2
     assert search_worker.search_item("x", media_type, 2)["next_page"] is None
 
 
-B21 = pytest.mark.xfail(reason="B21: book and movie set passed=True before parsing the page, so a bad page reports success")
-
-
-@pytest.mark.parametrize("media_type", [
-    pytest.param(media_type, marks=B21) if media_type in ("book", "movie") else media_type
-    for media_type in MEDIA_TYPES
-])
+@pytest.mark.parametrize("media_type", MEDIA_TYPES)
 def test_non_numeric_page_fails_cleanly(search_worker, rsps, media_type):  # U-PAGE-3
     register_results(search_worker, rsps, media_type)
     assert search_worker.search_item("x", media_type, "abc")["passed"] is False

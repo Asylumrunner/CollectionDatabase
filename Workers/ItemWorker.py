@@ -2,8 +2,6 @@ from Workers.BaseWorker import BaseWorker
 from DataClasses.item import Item
 from DataClasses.igdb_platforms import get_platform_id
 from Utilities.ResolveUserId import resolve_user_id
-import sys
-import traceback
 import json
 import logging
 import time
@@ -12,20 +10,11 @@ logger = logging.getLogger(__name__)
 
 
 class ItemWorker(BaseWorker):
+
+    PAGE_SIZE = 25
+    
     def __init__(self):
         pass
-
-    def _build_exception_dict(self, exception, context_info):
-        _exc_type, _exc_value, exc_traceback = sys.exc_info()
-
-        return {
-            "error_type": type(exception).__name__,
-            "error_message": str(exception),
-            "traceback": traceback.format_exc(),
-            "traceback_lines": traceback.format_tb(exc_traceback),
-            "context": context_info,
-            "exception_args": exception.args if hasattr(exception, 'args') else None
-        }
 
     def check_item(self, media_type, original_api_id):
         media_type_id = self.media_type_mappings.get(media_type)
@@ -103,8 +92,10 @@ class ItemWorker(BaseWorker):
     def add_item(self, item):
         start = time.perf_counter()
         response = {"passed": True, "Item": None, "already_exists": False}
+        current_step = None
 
         try:
+            current_step = "check_existing_item"
             existing_item_id = self.check_item(item.media_type, item.original_api_id)
             if existing_item_id:
                 response["Item"] = self.get_item_by_id(existing_item_id)
@@ -115,6 +106,7 @@ class ItemWorker(BaseWorker):
             with self.get_connection_context() as connection:
                 cursor = connection.cursor(dictionary=True)
                 try:
+                    current_step = "insert_item"
                     item_query = """
                         INSERT INTO items (title, media_type, release_year, img_link, original_api_id, summary)
                         VALUES (%s, %s, %s, %s, %s, %s)
@@ -133,6 +125,7 @@ class ItemWorker(BaseWorker):
                     ))
                     item_id = cursor.lastrowid
 
+                    current_step = "insert_creators"
                     if item.created_by:
                         # dict.fromkeys drops repeated names but keeps their order
                         for creator_name in dict.fromkeys(item.created_by):
@@ -150,6 +143,7 @@ class ItemWorker(BaseWorker):
                                 (item_id, creator_id)
                             )
 
+                    current_step = "insert_genres"
                     if item.genres:
                         for genre_name in dict.fromkeys(item.genres):
                             genre_insert = """
@@ -166,6 +160,7 @@ class ItemWorker(BaseWorker):
                                 (item_id, genre_id)
                             )
 
+                    current_step = "insert_media_details"
                     media_type_lower = item.media_type.lower()
 
                     if media_type_lower == 'book':
@@ -254,23 +249,20 @@ class ItemWorker(BaseWorker):
                 finally:
                     cursor.close()
 
+            current_step = "fetch_created_item"
             # Fetch complete item AFTER releasing the connection to avoid pool exhaustion
             response["Item"] = self.get_item_by_id(item_id)
             logger.info(f"Created item: item_id={item_id} media_type={item.media_type} original_api_id={item.original_api_id} duration_ms={(time.perf_counter() - start) * 1000:.0f}")
             return response
 
         except Exception as e:
-            logger.error(f"Failed to add item: media_type={item.media_type} original_api_id={item.original_api_id} duration_ms={(time.perf_counter() - start) * 1000:.0f} {self._error_log_fields(e)}")
-            response["passed"] = False
-            response["exception"] = self._build_exception_dict(e, {
-                "function": "add_item",
-                "media_type": item.media_type,
-                "original_api_id": item.original_api_id,
-                "title": item.title
-            })
-            return response
-
-    PAGE_SIZE = 25
+            logger.error(f"Failed to add item: media_type={item.media_type} original_api_id={item.original_api_id} step={current_step} duration_ms={(time.perf_counter() - start) * 1000:.0f} {self._error_log_fields(e)}")
+            return self._failure_response(
+                e, "add_item", current_step,
+                media_type=item.media_type,
+                original_api_id=item.original_api_id,
+                title=item.title
+            )
 
     def get_user_collection(self, user_id, page):
         start = time.perf_counter()
@@ -303,16 +295,7 @@ class ItemWorker(BaseWorker):
 
         except Exception as e:
             logger.error(f"Failed to get collection: page={page} step={current_step} duration_ms={(time.perf_counter() - start) * 1000:.0f} {self._error_log_fields(e)}")
-            return {
-                "passed": False,
-                "step_failed": current_step,
-                "exception": self._build_exception_dict(e, {
-                    "function": "get_user_collection",
-                    "step": current_step,
-                    "user_id": user_id,
-                    "page": page
-                })
-            }
+            return self._failure_response(e, "get_user_collection", current_step, user_id=user_id, page=page)
 
     def remove_item_from_collection(self, user_id, item_id):
         start = time.perf_counter()
@@ -339,16 +322,7 @@ class ItemWorker(BaseWorker):
 
         except Exception as e:
             logger.error(f"Failed to remove item from collection: item_id={item_id} step={current_step} duration_ms={(time.perf_counter() - start) * 1000:.0f} {self._error_log_fields(e)}")
-            return {
-                "passed": False,
-                "step_failed": current_step,
-                "exception": self._build_exception_dict(e, {
-                    "function": "remove_item_from_collection",
-                    "step": current_step,
-                    "item_id": item_id,
-                    "user_id": user_id
-                })
-            }
+            return self._failure_response(e, "remove_item_from_collection", current_step, item_id=item_id, user_id=user_id)
 
     def add_items_to_collection(self, user_id, items):
         start = time.perf_counter()
@@ -412,13 +386,8 @@ class ItemWorker(BaseWorker):
 
         except Exception as e:
             logger.error(f"Failed to add items to collection: requested={len(items)} step={current_step} duration_ms={(time.perf_counter() - start) * 1000:.0f} {self._error_log_fields(e)}")
-            results["passed"] = False
-            results["step_failed"] = current_step
-            results["exception"] = self._build_exception_dict(e, {
-                "function": "add_items_to_collection",
-                "step": current_step,
-                "user_id": user_id
-            })
+            # Keep the partial results (e.g. per-item failures) alongside the standard failure keys
+            results.update(self._failure_response(e, "add_items_to_collection", current_step, user_id=user_id))
             return results
 
         logger.info(f"Added items to collection: requested={len(items)} added={len(results['added'])} already_existed={len(results['already_existed'])} failed={len(results['failed'])} duration_ms={(time.perf_counter() - start) * 1000:.0f}")
@@ -452,26 +421,18 @@ class ItemWorker(BaseWorker):
 
         except Exception as e:
             logger.error(f"Failed to remove items from collection: requested={len(item_ids)} step={current_step} duration_ms={(time.perf_counter() - start) * 1000:.0f} {self._error_log_fields(e)}")
-            return {
-                "passed": False,
-                "step_failed": current_step,
-                "exception": self._build_exception_dict(e, {
-                    "function": "remove_items_from_collection",
-                    "step": current_step,
-                    "item_ids": item_ids,
-                    "user_id": user_id
-                })
-            }
+            return self._failure_response(e, "remove_items_from_collection", current_step, item_ids=item_ids, user_id=user_id)
 
     def add_item_to_collection(self, user_id, item):
         start = time.perf_counter()
         add_item_response = self.add_item(item)
         if not add_item_response["passed"]:
-            # add_item has already logged the underlying error
+            # add_item has already logged the underlying error; surface its exception
+            # under this method's standard failure shape
             return {
                 "passed": False,
                 "step_failed": "add_item",
-                "step_status": add_item_response
+                "exception": add_item_response["exception"]
             }
 
         item_id = add_item_response["Item"].id
@@ -520,14 +481,5 @@ class ItemWorker(BaseWorker):
 
         except Exception as e:
             logger.error(f"Failed to add item to collection: item_id={item_id} step={current_step} duration_ms={(time.perf_counter() - start) * 1000:.0f} {self._error_log_fields(e)}")
-            return {
-                "passed": False,
-                "step_failed": current_step,
-                "exception": self._build_exception_dict(e, {
-                    "function": "add_item_to_collection",
-                    "step": current_step,
-                    "item_id": item_id,
-                    "user_id": user_id
-                })
-            }
+            return self._failure_response(e, "add_item_to_collection", current_step, item_id=item_id, user_id=user_id)
 

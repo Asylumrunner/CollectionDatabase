@@ -29,8 +29,9 @@ def test_each_media_type_calls_its_lookup(search_worker, media_type):  # U-SD-1
 def test_unknown_media_type_lists_valid_types(search_worker):  # U-SD-2
     result = search_worker.search_item("dune", "not_a_type")
     assert result["passed"] is False
+    assert result["step_failed"] == "dispatch"
     for media_type in MEDIA_TYPES:
-        assert media_type in result["exception"]
+        assert media_type in result["exception"]["error_message"]
 
 
 def test_page_and_options_have_defaults(search_worker):  # U-SD-3

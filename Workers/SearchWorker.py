@@ -11,8 +11,6 @@ import logging
 import requests
 from benedict import benedict
 from datetime import datetime
-import traceback
-import sys
 import time
 
 class SearchWorker(BaseWorker):
@@ -72,18 +70,6 @@ class SearchWorker(BaseWorker):
             "Authorization": f"Bearer {self.IGDB_Access_Token}",
         }
 
-    def _build_exception_dict(self, exception, context_info):
-        _exc_type, _exc_value, exc_traceback = sys.exc_info()
-
-        return {
-            "error_type": type(exception).__name__,
-            "error_message": str(exception),
-            "traceback": traceback.format_exc(),
-            "traceback_lines": traceback.format_tb(exc_traceback),
-            "context": context_info,
-            "exception_args": exception.args if hasattr(exception, 'args') else None
-        }
-
     def search_item(self, name, media_type, pagination_key=None, search_options=None):
         pagination_key = pagination_key if pagination_key else 1
         search_options = search_options if search_options else {}
@@ -98,10 +84,8 @@ class SearchWorker(BaseWorker):
         }
         if media_type not in lookups:
             logging.error("media_type passed to LookupWorker not recognized")
-            return {
-                "passed": False,
-                "exception": f'media_type {media_type} not recognized. Please use one of [book, movie, video_game, board_game, rpg, anime, album]'
-            }
+            error = ValueError(f'media_type {media_type} not recognized. Please use one of [book, movie, video_game, board_game, rpg, anime, album]')
+            return self._failure_response(error, "search_item", "dispatch", media_type=media_type)
 
         logging.info(f"Search started: media_type={media_type} query={name!r} page={pagination_key} search_options={search_options}")
         start = time.perf_counter()
@@ -127,8 +111,10 @@ class SearchWorker(BaseWorker):
         
     def lookup_book(self, title, pagination_key, search_options={}):
         response = {"items": [], "passed": False}
+        current_step = None
         try:
             # Build the search query - all filters go into the 'q' parameter
+            current_step = "build_query"
             query_parts = [title]
 
             # Add direct search filters to query
@@ -164,9 +150,11 @@ class SearchWorker(BaseWorker):
             full_query = ' AND '.join(query_parts)
 
             params = {"q": full_query, "page": pagination_key, "fields": self.book_lookup_fields}
+            current_step = "fetch_results"
             req = requests.get(self.book_lookup_url, params=params)
             openLibResponse = req.json()
 
+            current_step = "parse_results"
             for book in openLibResponse["docs"]:
                 title = getIfUseful(book, 'title')
                 release_year = getIfUseful(book, 'first_publish_year')
@@ -182,16 +170,16 @@ class SearchWorker(BaseWorker):
             response["passed"] = True
             response["next_page"] = int(pagination_key) + 1
         except Exception as e:
-            logging.error(f"Exception in lookup for title {title} in BookController: {e}")
-            response["exception"] = self._build_exception_dict(e, {
-                "function": "lookup_book",
-                "title": title,
-                "pagination_key": pagination_key,
-                "search_options": search_options,
-                "url": req.url if 'req' in locals() else None,
-                "response_status": req.status_code if 'req' in locals() else None,
-                "response_text": req.text[:500] if 'req' in locals() else None
-            })
+            logging.error(f"Exception in lookup for title {title} in BookController at step {current_step}: {e}")
+            return self._failure_response(
+                e, "lookup_book", current_step,
+                title=title,
+                pagination_key=pagination_key,
+                search_options=search_options,
+                url=req.url if 'req' in locals() else None,
+                response_status=req.status_code if 'req' in locals() else None,
+                response_text=req.text[:500] if 'req' in locals() else None
+            )
         return response
     
     def movie_lookup(self, guid):
@@ -222,8 +210,10 @@ class SearchWorker(BaseWorker):
     def lookup_movie(self, title, pagination_key, search_options=None):
         search_options = search_options if search_options else {}
         response = {"items": [], "passed": False}
+        current_step = None
         try:
             # Required parameters
+            current_step = "build_query"
             params = {"api_key": self.MDB_API_KEY, "query": title, "page": pagination_key}
 
             # Add optional search parameters
@@ -235,10 +225,13 @@ class SearchWorker(BaseWorker):
                 if param in search_options:
                     params[param] = search_options[param]
 
+            current_step = "fetch_results"
             req = requests.get(f"{self.tmdb_base_url}/search/movie", params=params)
+            result_ids = [result['id'] for result in req.json()['results']]
 
+            current_step = "fetch_details"
             with concurrent.futures.ThreadPoolExecutor() as executor:
-                lookups = executor.map(self.movie_lookup, [result['id'] for result in req.json()['results']])
+                lookups = executor.map(self.movie_lookup, result_ids)
 
             for lookup in lookups:
                 response['items'].append(lookup)
@@ -246,23 +239,25 @@ class SearchWorker(BaseWorker):
             response["passed"] = True
             response["next_page"] = int(pagination_key) + 1
         except Exception as e:
-            logging.error(f"Exception in lookup for title {title} in MovieController: {e}")
-            response["exception"] = self._build_exception_dict(e, {
-                "function": "lookup_movie",
-                "title": title,
-                "pagination_key": pagination_key,
-                "search_options": search_options,
-                "url": req.url if 'req' in locals() else None,
-                "response_status": req.status_code if 'req' in locals() else None,
-                "response_text": req.text[:500] if 'req' in locals() else None
-            })
+            logging.error(f"Exception in lookup for title {title} in MovieController at step {current_step}: {e}")
+            return self._failure_response(
+                e, "lookup_movie", current_step,
+                title=title,
+                pagination_key=pagination_key,
+                search_options=search_options,
+                url=req.url if 'req' in locals() else None,
+                response_status=req.status_code if 'req' in locals() else None,
+                response_text=req.text[:500] if 'req' in locals() else None
+            )
         return response
 
     def lookup_video_game(self, title, pagination_key, search_options=None):
         search_options = search_options if search_options else {}
         response = {"items": [], "passed": False}
+        current_step = None
         try:
             # Build where clause conditions
+            current_step = "build_query"
             where_conditions = []
 
             # Handle platform filter
@@ -297,7 +292,10 @@ class SearchWorker(BaseWorker):
             offset = (int(pagination_key) - 1) * 25
             request_body = f'search "{safe_title}"; limit 25; offset {offset}; fields {self.vg_lookup_fields};{where_clause}'
 
+            current_step = "fetch_results"
             req = requests.post(self.vg_lookup_url, data=request_body, headers=self.IGDB_headers).json()
+
+            current_step = "parse_results"
             for game in req:
                 guid = game["id"]
                 game_title = game["name"]
@@ -317,23 +315,26 @@ class SearchWorker(BaseWorker):
             response["passed"] = True
         except Exception as e:
             request_body_info = request_body if 'request_body' in locals() else 'Not yet formed'
-            logging.error(f"Exception in lookup for title {title} in VideoGameController: {e}. Request body: {request_body_info}")
-            response["exception"] = self._build_exception_dict(e, {
-                "function": "lookup_video_game",
-                "title": title,
-                "pagination_key": pagination_key,
-                "search_options": search_options,
-                "request_body": request_body_info
-            })
+            logging.error(f"Exception in lookup for title {title} in VideoGameController at step {current_step}: {e}. Request body: {request_body_info}")
+            return self._failure_response(
+                e, "lookup_video_game", current_step,
+                title=title,
+                pagination_key=pagination_key,
+                search_options=search_options,
+                request_body=request_body_info
+            )
         return response
     
     def lookup_board_game(self, title, pagination_key, search_options=None):
         search_options = search_options if search_options else {}
         response = {"items": [], "passed": False}
+        current_step = None
         try:
+            current_step = "fetch_results"
             req = requests.get(f"{self.bgg_base_url}/search", params={"query": title, "type": "boardgame"}, headers=self.bgg_header)
             root = ET.fromstring(req.content)
 
+            current_step = "fetch_details"
             with concurrent.futures.ThreadPoolExecutor() as executor:
                 lookups = executor.map(self.board_game_detail_lookup, root)
 
@@ -343,13 +344,13 @@ class SearchWorker(BaseWorker):
             response['next_page'] = int(pagination_key) + 1
             response["passed"] = True
         except Exception as e:
-            logging.error(f"Exception in lookup for title {title} in BoardGameController: {e}")
-            response["exception"] = self._build_exception_dict(e, {
-                "function": "lookup_board_game",
-                "title": title,
-                "pagination_key": pagination_key,
-                "search_options": search_options
-            })
+            logging.error(f"Exception in lookup for title {title} in BoardGameController at step {current_step}: {e}")
+            return self._failure_response(
+                e, "lookup_board_game", current_step,
+                title=title,
+                pagination_key=pagination_key,
+                search_options=search_options
+            )
         return response
 
     def board_game_detail_lookup(self, child):
@@ -376,10 +377,13 @@ class SearchWorker(BaseWorker):
     def lookup_rpg(self, title, pagination_key, search_options=None):
         search_options = search_options if search_options else {}
         response = {"items": [], "passed": False}
+        current_step = None
         try:
+            current_step = "fetch_results"
             req = requests.get(f"{self.rpggeek_base_url}/search", params={"query": title, "type": "rpgitem"}, headers=self.bgg_header)
             root = ET.fromstring(req.content)
 
+            current_step = "fetch_details"
             with concurrent.futures.ThreadPoolExecutor() as executor:
                 lookups = executor.map(self.rpg_detail_lookup, root)
 
@@ -390,13 +394,13 @@ class SearchWorker(BaseWorker):
             response['next_page'] = int(pagination_key) + 1
             response['passed'] = True
         except Exception as e:
-            logging.error(f"Exception in lookup for title {title} in RPGController: {e}")
-            response["exception"] = self._build_exception_dict(e, {
-                "function": "lookup_rpg",
-                "title": title,
-                "pagination_key": pagination_key,
-                "search_options": search_options
-            })
+            logging.error(f"Exception in lookup for title {title} in RPGController at step {current_step}: {e}")
+            return self._failure_response(
+                e, "lookup_rpg", current_step,
+                title=title,
+                pagination_key=pagination_key,
+                search_options=search_options
+            )
         return response
 
     def rpg_detail_lookup(self, child):
@@ -421,10 +425,12 @@ class SearchWorker(BaseWorker):
     def lookup_anime(self, title, pagination_key, search_options=None):
         search_options = search_options if search_options else {}
         response = {"items": [], "passed": False}
+        current_step = None
         try:
             # Build parameters dict for Jikan API
             # Jikan API available options: type, status, rating, genre, score, sfw, order_by, sort,
             # min_score, max_score, start_date, end_date, genres, genres_exclude, producers, etc.
+            current_step = "build_query"
             recognized_params = [
                 'type', 'status', 'rating', 'genre', 'score', 'sfw',
                 'order_by', 'sort', 'min_score', 'max_score', 'start_date',
@@ -435,6 +441,7 @@ class SearchWorker(BaseWorker):
             api_parameters = {k: v for k, v in search_options.items() if k in recognized_params}
 
             # Pass parameters to Jikanpy's search method
+            current_step = "fetch_results"
             jikan_response = self.jikan_client.search(
                 "anime",
                 title,
@@ -442,6 +449,7 @@ class SearchWorker(BaseWorker):
                 parameters=api_parameters if api_parameters else None
             )
 
+            current_step = "parse_results"
             if jikan_response['data']:
                 for anime in jikan_response['data']:
                     item = Item(
@@ -459,22 +467,24 @@ class SearchWorker(BaseWorker):
             response['next_page'] = int(pagination_key) + 1
             response['passed'] = True
         except Exception as e:
-            logging.error(f"Exception in lookup for title {title} in AnimeController: {e}")
-            response["exception"] = self._build_exception_dict(e, {
-                "function": "lookup_anime",
-                "title": title,
-                "pagination_key": pagination_key,
-                "search_options": search_options,
-                "api_parameters": api_parameters if 'api_parameters' in locals() else None
-            })
+            logging.error(f"Exception in lookup for title {title} in AnimeController at step {current_step}: {e}")
+            return self._failure_response(
+                e, "lookup_anime", current_step,
+                title=title,
+                pagination_key=pagination_key,
+                search_options=search_options,
+                api_parameters=api_parameters if 'api_parameters' in locals() else None
+            )
         return response
     
     def lookup_music(self, album, pagination_key, search_options=None):
         search_options = search_options if search_options else {}
         response = {"items": [], "passed": False}
+        current_step = None
         try:
             # Build Discogs search query
             # Discogs API supports: artist, release_title, label, genre, year, format, etc.
+            current_step = "build_query"
             search_params = {'release_title': album, 'type': 'master'}
 
             # Add optional search parameters
@@ -485,11 +495,13 @@ class SearchWorker(BaseWorker):
                     search_params[param] = search_options[param]
 
             # Perform search
+            current_step = "fetch_results"
             results = self.discogs_client.search(**search_params)
 
             # Get the specified page of results
             page_results = results.page(pagination_key)
 
+            current_step = "parse_results"
             for master in page_results:
                 # Get full master details
                 try:
@@ -555,14 +567,14 @@ class SearchWorker(BaseWorker):
             response['next_page'] = int(pagination_key) + 1
             response['passed'] = True
         except Exception as e:
-            logging.error(f"Exception in lookup for album {album} in MusicController: {e}")
-            response["exception"] = self._build_exception_dict(e, {
-                "function": "lookup_music",
-                "album": album,
-                "pagination_key": pagination_key,
-                "search_options": search_options,
-                "search_params": search_params if 'search_params' in locals() else None
-            })
+            logging.error(f"Exception in lookup for album {album} in MusicController at step {current_step}: {e}")
+            return self._failure_response(
+                e, "lookup_music", current_step,
+                album=album,
+                pagination_key=pagination_key,
+                search_options=search_options,
+                search_params=search_params if 'search_params' in locals() else None
+            )
         return response
 
 # Utility function to save some readability

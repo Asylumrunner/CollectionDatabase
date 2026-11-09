@@ -8,6 +8,7 @@ import logging
 import os
 import sys
 import time
+import traceback
 
 # Set up logging
 logger = logging.getLogger(__name__)
@@ -102,6 +103,26 @@ class BaseWorker():
         # Formats a DB exception into safe, structured log fields for subclasses to use.
         # Log error codes only; exception messages can echo user identifiers or row values back
         return f"error_type={type(e).__name__} errno={getattr(e, 'errno', None)} sqlstate={getattr(e, 'sqlstate', None)}"
+
+    def _failure_response(self, exception, function, step, **context):
+        # Builds the response every worker method returns when it fails:
+        #   {"passed": False, "step_failed": <step>, "exception": {...}}
+        # The exception context always carries "function" and "step", plus any extra
+        # keyword arguments. Callers may add extra keys (e.g. partial results) on top.
+        # The traceback is read from the exception itself, so this also works outside an except block.
+        tb = exception.__traceback__
+        return {
+            "passed": False,
+            "step_failed": step,
+            "exception": {
+                "error_type": type(exception).__name__,
+                "error_message": str(exception),
+                "traceback": "".join(traceback.format_exception(type(exception), exception, tb)),
+                "traceback_lines": traceback.format_tb(tb),
+                "context": {"function": function, "step": step, **context},
+                "exception_args": exception.args
+            }
+        }
 
     def get_connection(self):
         # Raw pool checkout. Caller is responsible for calling close() to return it;

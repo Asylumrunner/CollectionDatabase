@@ -22,7 +22,10 @@ def test_create_user_reports_db_errors_without_logging_the_id(user_worker, db, c
     db.fail_on("INSERT INTO users", Error(msg="boom", errno=1205, sqlstate="HY000"))
     result = user_worker.create_user("clerk_secret_id", "name")
     assert result["passed"] is False
-    assert result["exception"]["context"] == {"clerk_user_id": "clerk_secret_id"}
+    assert result["step_failed"] == "insert_user"
+    assert result["exception"]["context"] == {
+        "function": "create_user", "step": "insert_user", "clerk_user_id": "clerk_secret_id"
+    }
     assert "errno=1205" in caplog.text
     assert "clerk_secret_id" not in caplog.text
 
