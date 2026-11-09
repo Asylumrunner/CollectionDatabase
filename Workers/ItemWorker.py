@@ -1,8 +1,6 @@
 from Workers.BaseWorker import BaseWorker
-from DataClasses.item import Item
 from DataClasses.igdb_platforms import get_platform_id
 from Utilities.ResolveUserId import resolve_user_id
-import json
 import logging
 import time
 
@@ -25,54 +23,6 @@ class ItemWorker(BaseWorker):
             cursor.execute(query, (media_type_id, original_api_id))
             result = cursor.fetchone()
             return result['id'] if result else None
-
-    def _row_to_item(self, row):
-        creators = json.loads(row['creators']) if row['creators'] else []
-        genres = json.loads(row['genres']) if row['genres'] else []
-        platforms = json.loads(row['videogame_platforms']) if row['videogame_platforms'] else None
-        platform_igdb_ids = row.get('videogame_platform_igdb_ids')
-        platform_igdb_ids = json.loads(platform_igdb_ids) if platform_igdb_ids else None
-        tracklist = json.loads(row['album_tracks']) if row['album_tracks'] else None
-
-        media_type = row['media_type']
-        isbn = printing_year = lang = duration = min_players = max_players = episodes = None
-
-        if media_type == 'book':
-            isbn = row['book_isbn']
-            printing_year = row['book_printing_year']
-        elif media_type == 'movie':
-            lang = row['movie_lang']
-            duration = row['movie_duration']
-        elif media_type == 'board_game':
-            min_players = row['boardgame_min_players']
-            max_players = row['boardgame_max_players']
-            duration = row['boardgame_duration']
-        elif media_type == 'rpg':
-            isbn = row['rpg_isbn']
-        elif media_type == 'anime':
-            episodes = row['anime_episodes']
-
-        return Item(
-            id=str(row['id']),
-            title=row['title'],
-            media_type=row['media_type'],
-            release_year=row['release_year'],
-            img_link=row['img_link'],
-            original_api_id=row['original_api_id'],
-            created_by=creators,
-            isbn=isbn,
-            printing_year=printing_year,
-            lang=lang,
-            summary=row['summary'],
-            duration=duration,
-            min_players=min_players,
-            max_players=max_players,
-            episodes=episodes,
-            platforms=platforms,
-            platform_igdb_ids=platform_igdb_ids,
-            tracklist=tracklist,
-            genres=genres
-        )
 
     def get_item_by_id(self, item_id):
         with self.get_cursor_context(dictionary=True) as cursor:

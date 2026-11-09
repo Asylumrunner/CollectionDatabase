@@ -1,6 +1,5 @@
-"""U-ROW and U-EXC. `_row_to_item` is copy-pasted between workers, so each case runs
-against every copy to catch them drifting apart. `_failure_response` lives on BaseWorker
-and is checked through every worker to make sure none of them overrides it."""
+"""U-ROW and U-EXC. `_row_to_item` and `_failure_response` live on BaseWorker; each case
+runs through every worker that uses them to make sure none of them overrides them."""
 import pytest
 
 from Workers.ItemWorker import ItemWorker
