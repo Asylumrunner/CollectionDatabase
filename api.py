@@ -104,6 +104,7 @@ def add_item_to_collection(user_id=None):
         max_players=data.get('max_players'),
         episodes=data.get('episodes'),
         platforms=data.get('platforms'),
+        platform_igdb_ids=data.get('platform_igdb_ids'),
         tracklist=data.get('tracklist'),
         genres=data.get('genres')
     )
@@ -161,6 +162,7 @@ def add_items_to_collection(user_id=None):
             max_players=item_data.get('max_players'),
             episodes=item_data.get('episodes'),
             platforms=item_data.get('platforms'),
+            platform_igdb_ids=item_data.get('platform_igdb_ids'),
             tracklist=item_data.get('tracklist'),
             genres=item_data.get('genres')
         ))
@@ -225,6 +227,7 @@ def add_item_to_list(list_id, user_id=None):
         max_players=data.get('max_players'),
         episodes=data.get('episodes'),
         platforms=data.get('platforms'),
+        platform_igdb_ids=data.get('platform_igdb_ids'),
         tracklist=data.get('tracklist'),
         genres=data.get('genres')
     )

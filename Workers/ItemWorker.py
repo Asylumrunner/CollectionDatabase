@@ -1,5 +1,6 @@
 from Workers.BaseWorker import BaseWorker
 from DataClasses.item import Item
+from DataClasses.igdb_platforms import get_platform_id
 from Utilities.ResolveUserId import resolve_user_id
 import sys
 import traceback
@@ -40,6 +41,8 @@ class ItemWorker(BaseWorker):
         creators = json.loads(row['creators']) if row['creators'] else []
         genres = json.loads(row['genres']) if row['genres'] else []
         platforms = json.loads(row['videogame_platforms']) if row['videogame_platforms'] else None
+        platform_igdb_ids = row.get('videogame_platform_igdb_ids')
+        platform_igdb_ids = json.loads(platform_igdb_ids) if platform_igdb_ids else None
         tracklist = json.loads(row['album_tracks']) if row['album_tracks'] else None
 
         media_type = row['media_type']
@@ -77,6 +80,7 @@ class ItemWorker(BaseWorker):
             max_players=max_players,
             episodes=episodes,
             platforms=platforms,
+            platform_igdb_ids=platform_igdb_ids,
             tracklist=tracklist,
             genres=genres
         )
@@ -130,7 +134,8 @@ class ItemWorker(BaseWorker):
                     item_id = cursor.lastrowid
 
                     if item.created_by:
-                        for creator_name in item.created_by:
+                        # dict.fromkeys drops repeated names but keeps their order
+                        for creator_name in dict.fromkeys(item.created_by):
                             creator_insert = """
                                 INSERT IGNORE INTO creators (creator_name) VALUES (%s)
                             """
@@ -146,7 +151,7 @@ class ItemWorker(BaseWorker):
                             )
 
                     if item.genres:
-                        for genre_name in item.genres:
+                        for genre_name in dict.fromkeys(item.genres):
                             genre_insert = """
                                 INSERT IGNORE INTO genres (genre_name) VALUES (%s)
                             """
@@ -182,10 +187,21 @@ class ItemWorker(BaseWorker):
                         )
 
                         if item.platforms:
-                            for platform_name in item.platforms:
+                            platform_igdb_ids = item.platform_igdb_ids or {}
+                            # dict.fromkeys drops repeated names but keeps their order
+                            for platform_name in dict.fromkeys(item.platforms):
+                                # Prefer the ID IGDB gave us; otherwise try our alias table (e.g. "PS5")
+                                igdb_platform_id = platform_igdb_ids.get(platform_name) or get_platform_id(platform_name)
+                                # platform_name is unique, so a known platform keeps its row; fill in
+                                # its IGDB ID if an earlier save didn't know it
                                 cursor.execute(
-                                    "INSERT IGNORE INTO video_game_platforms (platform_name) VALUES (%s)",
-                                    (platform_name,)
+                                    """
+                                    INSERT INTO video_game_platforms (platform_name, igdb_platform_id)
+                                    VALUES (%s, %s) AS new
+                                    ON DUPLICATE KEY UPDATE igdb_platform_id =
+                                        COALESCE(video_game_platforms.igdb_platform_id, new.igdb_platform_id)
+                                    """,
+                                    (platform_name, igdb_platform_id)
                                 )
                                 cursor.fetchall()
 

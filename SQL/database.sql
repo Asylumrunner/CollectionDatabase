@@ -166,7 +166,11 @@ CREATE TABLE IF NOT EXISTS list_items (
 CREATE TABLE IF NOT EXISTS video_game_platforms (
     platform_id INT NOT NULL AUTO_INCREMENT,
     platform_name VARCHAR(64) NOT NULL,
-    PRIMARY KEY (platform_id)
+    -- IGDB's own platform ID (https://api-docs.igdb.com/#platform); NULL when unknown
+    igdb_platform_id INT NULL,
+    PRIMARY KEY (platform_id),
+    UNIQUE KEY (platform_name),
+    KEY idx_igdb_platform_id (igdb_platform_id)
 );
 
 CREATE TABLE IF NOT EXISTS game_platform_availabilities (
@@ -236,6 +240,12 @@ SELECT
      FROM game_platform_availabilities gpa
      JOIN video_game_platforms vgp ON gpa.platform_id = vgp.platform_id
      WHERE gpa.game_id = i.id) AS videogame_platforms,
+
+    -- Video game platforms' IGDB IDs as a JSON object of platform name -> IGDB ID (null when unknown)
+    (SELECT JSON_OBJECTAGG(vgp.platform_name, vgp.igdb_platform_id)
+     FROM game_platform_availabilities gpa
+     JOIN video_game_platforms vgp ON gpa.platform_id = vgp.platform_id
+     WHERE gpa.game_id = i.id) AS videogame_platform_igdb_ids,
 
     -- Album tracks as JSON array of track names (ordered)
     (SELECT JSON_ARRAYAGG(ordered_tracks.track_name)

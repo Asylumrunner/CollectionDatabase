@@ -201,9 +201,12 @@ class UserClient:
         self.user_id = user_id
 
     def open(self, path, method, **kwargs):
-        self.monkeypatch.setenv("SKIP_AUTH", "true")
-        self.monkeypatch.setenv("DEV_USER_ID", self.user_id)
-        return self.app.test_client().open(path, method=method, **kwargs)
+        # Scope the auth bypass to this one request. Leaving it set would let later requests
+        # in the same test (e.g. ones with real tokens) silently skip authentication too.
+        with self.monkeypatch.context() as patch:
+            patch.setenv("SKIP_AUTH", "true")
+            patch.setenv("DEV_USER_ID", self.user_id)
+            return self.app.test_client().open(path, method=method, **kwargs)
 
     def get(self, path, **kwargs):
         return self.open(path, "GET", **kwargs)

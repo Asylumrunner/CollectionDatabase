@@ -46,7 +46,7 @@ class SearchWorker(BaseWorker):
         self.IGDB_Client_ID = secrets['IGDB_Client_ID']
         self.IGDB_Client_Secret = secrets['IGDB_Client_Secret']
         self.vg_lookup_url = "https://api.igdb.com/v4/games"
-        self.vg_lookup_fields = "artworks,cover.image_id,created_at,first_release_date,involved_companies.company.name,language_supports,name,platforms.name,ports,status,summary"
+        self.vg_lookup_fields = "artworks,cover.image_id,created_at,first_release_date,involved_companies.company.name,language_supports,name,platforms.id,platforms.name,ports,status,summary"
         try:
             logging.info("Fetching IGDB access token...")
             self.get_IGDB_Access_Token()
@@ -307,8 +307,10 @@ class SearchWorker(BaseWorker):
                 developer = [company["company"]["name"] for company in game.get("involved_companies", [])]
                 summary = game.get("summary", "")
                 platforms = [platform["name"] for platform in game.get("platforms", [])]
+                platform_igdb_ids = {platform["name"]: platform["id"] for platform in game.get("platforms", []) if "id" in platform}
                 item = Item(
-                    guid, game_title, media_type, release_year, img_link, guid, developer, summary=summary, platforms=platforms
+                    guid, game_title, media_type, release_year, img_link, guid, developer, summary=summary,
+                    platforms=platforms, platform_igdb_ids=platform_igdb_ids
                 )
                 response['items'].append(item)
             response['next_page'] = int(pagination_key) + 1

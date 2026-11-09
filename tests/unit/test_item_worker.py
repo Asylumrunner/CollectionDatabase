@@ -108,6 +108,24 @@ def test_add_item_links_platforms(item_worker, db):  # U-ITEM-15
     assert db.params("INSERT INTO game_platform_availabilities") == [(42, 8), (42, 8)]
 
 
+def test_add_item_ignores_repeated_platform_names(item_worker, db):  # U-ITEM-15
+    result = item_worker.add_item(make_item("video_game", platforms=["PC", "PC", "Dreamcast"]))
+    assert result["passed"]
+    assert db.params("INSERT INTO video_game_platforms") == [("PC", 6), ("Dreamcast", 23)]
+    assert len(db.params("INSERT INTO game_platform_availabilities")) == 2
+
+
+def test_add_item_saves_igdb_platform_ids(item_worker, db):  # U-ITEM-15
+    item_worker.add_item(make_item(
+        "video_game", platforms=["PC (Microsoft Windows)", "PS5", "Homebrew Console"],
+        platform_igdb_ids={"PC (Microsoft Windows)": 6},
+    ))
+    # IGDB's ID first, then the alias table, else NULL
+    assert db.params("INSERT INTO video_game_platforms") == [
+        ("PC (Microsoft Windows)", 6), ("PS5", 167), ("Homebrew Console", None),
+    ]
+
+
 @pytest.mark.parametrize("platforms", [None, []])
 def test_add_item_without_platforms_makes_no_platform_queries(item_worker, db, platforms):  # U-ITEM-15
     item_worker.add_item(make_item("video_game", platforms=platforms))
@@ -154,7 +172,6 @@ def test_add_item_releases_its_connection_before_refetching(item_worker, db):  #
     assert close_after_commit < db.index_of(VIEW)
 
 
-@pytest.mark.xfail(reason="B7: a repeated name violates the link table's primary key")
 @pytest.mark.parametrize("media_type, field, link_table", [
     ("book", "created_by", "INSERT INTO item_creators"),
     ("book", "genres", "INSERT INTO item_genres"),

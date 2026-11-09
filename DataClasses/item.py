@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from typing import Optional, List
+from typing import Optional, List, Dict
 from datetime import date
 
 @dataclass
@@ -20,5 +20,7 @@ class Item:
     max_players: Optional[int] = None
     episodes: Optional[int] = None
     platforms: Optional[List[str]] = None
+    # Platform name -> IGDB platform ID, for the names in `platforms` whose IGDB ID is known
+    platform_igdb_ids: Optional[Dict[str, int]] = None
     tracklist: Optional[List[str]] = None
     genres: Optional[List[str]] = None

@@ -88,6 +88,7 @@ def view_row(item_id=42, media_type="book", **overrides):
         "rpg_isbn": None,
         "anime_episodes": None,
         "videogame_platforms": None,
+        "videogame_platform_igdb_ids": None,
         "album_tracks": None,
     }
     row.update(overrides)

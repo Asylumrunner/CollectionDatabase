@@ -242,11 +242,12 @@ def test_igdb_invalid_date_is_skipped_with_a_warning(search_worker, rsps, caplog
 def test_igdb_fields_are_mapped(search_worker, rsps):  # U-VG-6
     rsps.post(IGDB, json=[{
         "id": 7, "name": "Zelda", "first_release_date": utc_timestamp(2001, 9, 9), "cover": {"image_id": "abc"},
-        "involved_companies": [{"company": {"name": "Nintendo"}}], "summary": "Summary", "platforms": [{"name": "N64"}],
+        "involved_companies": [{"company": {"name": "Nintendo"}}], "summary": "Summary", "platforms": [{"id": 4, "name": "N64"}],
     }])
     item = search_worker.lookup_video_game("zelda", 1)["items"][0]
     assert (item.id, item.original_api_id, item.title, item.release_year) == (7, 7, "Zelda", 2001)
     assert (item.img_link, item.created_by, item.platforms) == ("abc", ["Nintendo"], ["N64"])
+    assert item.platform_igdb_ids == {"N64": 4}
     assert item.summary == "Summary"
 
 

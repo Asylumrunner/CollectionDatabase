@@ -22,7 +22,8 @@ def mapper(request):
      {"min_players": 3, "max_players": 4, "duration": 90}),
     ("rpg", {"rpg_isbn": "456"}, {"isbn": "456"}),
     ("anime", {"anime_episodes": 26}, {"episodes": 26}),
-    ("video_game", {"videogame_platforms": '["PC", "Dreamcast"]'}, {"platforms": ["PC", "Dreamcast"]}),
+    ("video_game", {"videogame_platforms": '["PC", "Dreamcast"]', "videogame_platform_igdb_ids": '{"PC": 6, "Dreamcast": 23}'},
+     {"platforms": ["PC", "Dreamcast"], "platform_igdb_ids": {"PC": 6, "Dreamcast": 23}}),
     ("album", {"album_tracks": '["One", "Two"]'}, {"tracklist": ["One", "Two"]}),
 ])
 def test_each_media_type_maps_its_own_columns(mapper, media_type, columns, expected):  # U-ROW-1 to 7
@@ -44,6 +45,7 @@ def test_null_aggregates_map_to_their_empty_values(mapper):  # U-ROW-9
     assert item.created_by == []
     assert item.genres == []
     assert item.platforms is None
+    assert item.platform_igdb_ids is None
     assert item.tracklist is None
 
 

@@ -30,6 +30,8 @@ class ListWorker(BaseWorker):
         creators = json.loads(row['creators']) if row['creators'] else []
         genres = json.loads(row['genres']) if row['genres'] else []
         platforms = json.loads(row['videogame_platforms']) if row['videogame_platforms'] else None
+        platform_igdb_ids = row.get('videogame_platform_igdb_ids')
+        platform_igdb_ids = json.loads(platform_igdb_ids) if platform_igdb_ids else None
         tracklist = json.loads(row['album_tracks']) if row['album_tracks'] else None
 
         media_type = row['media_type']
@@ -67,6 +69,7 @@ class ListWorker(BaseWorker):
             max_players=max_players,
             episodes=episodes,
             platforms=platforms,
+            platform_igdb_ids=platform_igdb_ids,
             tracklist=tracklist,
             genres=genres
         )

@@ -133,17 +133,39 @@ def test_shared_creators_and_genres_get_one_row(user_a, db):  # F-COL-17
     assert db.count("item_genres") == 2
 
 
-@pytest.mark.xfail(reason="B6: video_game_platforms has no unique key, so INSERT IGNORE adds a row every time")
 def test_shared_platforms_get_one_row(user_a, db):  # F-COL-18
     add(user_a, "video_game", original_api_id="one", platforms=["PC"])
     add(user_a, "video_game", original_api_id="two", platforms=["PC"])
     assert db.count("video_game_platforms") == 1
+    assert db.count("game_platform_availabilities") == 2
 
 
-@pytest.mark.xfail(reason="B7: a repeated creator violates item_creators' primary key")
+def test_platform_igdb_ids_round_trip(user_a, db):  # F-COL-18
+    add(user_a, "video_game", original_api_id="one", platforms=["PC (Microsoft Windows)", "PS5", "Homebrew"],
+        platform_igdb_ids={"PC (Microsoft Windows)": 6})
+    stored = collection(user_a)["data"][0]
+    assert stored["platform_igdb_ids"] == {"PC (Microsoft Windows)": 6, "PS5": 167, "Homebrew": None}
+
+
+def test_later_save_fills_in_a_missing_igdb_platform_id(user_a, db):  # F-COL-18
+    add(user_a, "video_game", original_api_id="one", platforms=["Homebrew"])
+    add(user_a, "video_game", original_api_id="two", platforms=["Homebrew"], platform_igdb_ids={"Homebrew": 999})
+    assert db.rows("SELECT igdb_platform_id FROM video_game_platforms") == [{"igdb_platform_id": 999}]
+
+
+def test_repeated_platform_in_one_item(user_a, db):  # F-COL-19
+    assert add(user_a, "video_game", platforms=["PC", "PC"]).status_code == 200
+    assert db.count("game_platform_availabilities") == 1
+
+
 def test_repeated_creator_in_one_item(user_a, db):  # F-COL-19
     assert add(user_a, created_by=["Same", "Same"]).status_code == 200
     assert db.count("item_creators") == 1
+
+
+def test_repeated_genre_in_one_item(user_a, db):  # F-COL-19
+    assert add(user_a, genres=["Jazz", "Jazz"]).status_code == 200
+    assert db.count("item_genres") == 1
 
 
 def test_album_tracks_come_back_in_track_order(user_a):  # F-COL-20

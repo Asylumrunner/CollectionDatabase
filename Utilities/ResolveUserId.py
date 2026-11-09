@@ -1,3 +1,4 @@
+# Convenience utility function which converts a Clerk user_id ("user_xxxxxxx") into a username
 def resolve_user_id(cursor, clerk_user_id: str) -> int:
     cursor.execute(
         "SELECT user_id FROM users WHERE clerk_user_id = %s",
