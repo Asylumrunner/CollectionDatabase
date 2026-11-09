@@ -197,18 +197,16 @@ def test_page_below_one_is_a_400(client, mock_workers, path, page):  # U-API-13
     assert client.get(f"{path}?page={page}").status_code == 400
 
 
-@pytest.mark.xfail(reason="B1: request parsing errors are caught by the auth decorator and become 401s")
 def test_malformed_json_is_a_400(client):  # U-API-14
     response = client.put("/collection/item", data="{not json", content_type="application/json")
     assert response.status_code == 400
 
 
-@pytest.mark.xfail(reason="B1: request parsing errors are caught by the auth decorator and become 401s")
 def test_wrong_content_type_is_a_415(client):  # U-API-14
     assert client.put("/collection/item", data="x", content_type="text/plain").status_code == 415
 
 
-@pytest.mark.xfail(reason="B1: the TypeError from a non-dict element is caught by the auth decorator and becomes a 401")
+@pytest.mark.xfail(reason="non-dict bulk elements are not validated, so the TypeError becomes a 500")
 def test_non_dict_bulk_element_is_a_400(client):  # U-API-14
     assert client.put("/collection/items", json=[1]).status_code == 400
 

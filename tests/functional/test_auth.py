@@ -111,7 +111,6 @@ def test_no_token_message_reads_as_an_auth_failure(anonymous):  # F-AUTH-7
     assert "NoneType" not in anonymous.get("/collection").get_json()["err_msg"]
 
 
-@pytest.mark.xfail(reason="B1: request parsing errors are caught by the auth decorator and become 401s")
 def test_valid_token_with_malformed_json_is_a_400(anonymous):  # F-AUTH-8
     response = anonymous.put(
         "/collection/item", data="{not json", content_type="application/json", headers=bearer(make_token()),

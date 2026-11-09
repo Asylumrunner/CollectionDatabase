@@ -44,9 +44,11 @@ def authenticated_endpoint(f):
     @wraps(f)
     def decorated_function(*args, **kwargs):
         try:
+            # Extract the user_id from the response from Clerk
+            # rather than accepting it explicitly, then
+            # return that to the view
+            # NOTE: this is the CLERK ID, not the username
             user_id = is_signed_in(request)
-            kwargs['user_id'] = user_id
-            return f(*args, **kwargs)
         except Exception as e:
             response_object = {
                 'status': 'FAILURE',
@@ -57,4 +59,9 @@ def authenticated_endpoint(f):
             response = jsonify(response_object)
             response.status_code = 401
             return response
+
+        # Called outside the try so that errors raised by the view itself
+        # propagate normally instead of being reported as 401 Unauthorized
+        kwargs['user_id'] = user_id
+        return f(*args, **kwargs)
     return decorated_function

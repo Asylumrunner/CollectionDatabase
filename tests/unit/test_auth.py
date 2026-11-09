@@ -99,7 +99,6 @@ def test_decorator_injects_user_id_and_preserves_the_name(app, monkeypatch):  # 
     assert app.view_functions["ok"].__name__ == "ok"
 
 
-@pytest.mark.xfail(reason="B1: the decorator's try wraps the handler, so any handler exception becomes a 401")
 def test_handler_exceptions_are_not_reported_as_auth_failures(app, monkeypatch):  # U-AUTH-7
     monkeypatch.setenv("SKIP_AUTH", "true")
     assert app.test_client().get("/crash").status_code != 401
