@@ -153,13 +153,11 @@ def test_lists_containing_item_shows_only_the_callers(user_a, user_b):  # F-LST-
     assert user_b.get(f"/lists/item/{item_id}").get_json()["data"] == [{"list_id": b_list, "list_name": "Bob's list"}]
 
 
-@pytest.mark.xfail(reason="B9: renaming a list you don't own, or one that doesn't exist, returns 200")
 def test_renaming_someone_elses_list_is_a_404(user_a, user_b):  # F-LST-14
     list_id = create_list(user_a, "Original")
     assert user_b.put(f"/lists/{list_id}/rename", json={"list_name": "Hijacked"}).status_code == 404
 
 
-@pytest.mark.xfail(reason="B9: renaming a list you don't own, or one that doesn't exist, returns 200")
 def test_renaming_a_missing_list_is_a_404(user_a):  # F-LST-14
     assert user_a.put("/lists/999999/rename", json={"list_name": "Nope"}).status_code == 404
 

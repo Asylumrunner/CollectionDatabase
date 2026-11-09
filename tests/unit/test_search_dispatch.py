@@ -73,7 +73,6 @@ def test_init_raises_on_bad_credentials():  # U-SD-7
             SearchWorker()
 
 
-@pytest.mark.xfail(reason="B20: the IGDB token's expiry is recorded but never checked")
 def test_expired_token_is_refreshed_before_searching(search_worker, rsps):  # U-SD-8
     rsps.post("https://id.twitch.tv/oauth2/token", json={"access_token": "new-token", "expires_in": 3600})
     rsps.post("https://api.igdb.com/v4/games", json=[])

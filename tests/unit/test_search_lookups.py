@@ -378,7 +378,6 @@ def test_rpg_uses_rpggeek_and_maps_fields(search_worker, rsps):  # U-RPG-1
     assert field(item, "img_link") == "https://example.test/i.jpg"
 
 
-@pytest.mark.xfail(reason="B19e: RPG search returns dicts without an id, unlike every other type")
 def test_rpg_results_have_the_same_shape_as_other_types(search_worker, rsps):  # U-RPG-2
     rsps.get(f"{RPGGEEK}/search", body=search_xml(1))
     register_things(rsps, RPGGEEK, {1: thing_xml(1, link_type="rpgdesigner")})

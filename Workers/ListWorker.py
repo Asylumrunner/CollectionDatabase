@@ -342,10 +342,22 @@ class ListWorker(BaseWorker):
                         "UPDATE user_lists SET list_name = %s WHERE list_id = %s AND user_id = %s",
                         (new_list_name, list_id, internal_user_id)
                     )
+                    rows_updated = cursor.rowcount
                     connection.commit()
-                    # rows_updated=0 means the list wasn't found for this user (or the name was unchanged)
-                    logger.info(f"Renamed list: list_id={list_id} rows_updated={cursor.rowcount} duration_ms={(time.perf_counter() - start) * 1000:.0f}")
-                    return {"passed": True, "list_id": list_id, "list_name": new_list_name}
+
+                    if rows_updated == 0:
+                        # MySQL also reports 0 rows when the name is unchanged, so check the list really is missing
+                        current_step = "verify_list_ownership"
+                        cursor.execute(
+                            "SELECT list_id FROM user_lists WHERE list_id = %s AND user_id = %s",
+                            (list_id, internal_user_id)
+                        )
+                        if not cursor.fetchone():
+                            logger.warning(f"List not found for user, skipping rename: list_id={list_id} duration_ms={(time.perf_counter() - start) * 1000:.0f}")
+                            return {"passed": True, "not_found": True}
+
+                    logger.info(f"Renamed list: list_id={list_id} rows_updated={rows_updated} duration_ms={(time.perf_counter() - start) * 1000:.0f}")
+                    return {"passed": True, "not_found": False, "list_id": list_id, "list_name": new_list_name}
                 except Exception:
                     connection.rollback()
                     raise

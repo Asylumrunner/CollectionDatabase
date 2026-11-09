@@ -222,23 +222,36 @@ def test_search_without_media_type_is_a_400(client, mock_workers):  # U-API-16
     mock_workers["SEARCH"].search_item.assert_not_called()
 
 
-@pytest.mark.xfail(reason="B8: create_response arguments are misplaced, so the message lands in data")
 def test_search_without_media_type_explains_in_err_msg(client):  # U-API-16
     assert "media_type" in client.get("/search/dune").get_json()["err_msg"]
 
 
-@pytest.mark.xfail(reason="B8: an unknown media_type is reported as a 500")
 def test_search_with_unknown_media_type_is_a_400(client, mock_workers):  # U-API-17
     mock_workers["SEARCH"].search_item.return_value = {"passed": False, "exception": "media_type nope not recognized"}
     assert client.get("/search/dune?media_type=nope").status_code == 400
 
 
-@pytest.mark.xfail(reason="B8: create_response arguments are misplaced, so the page key lands in data")
 def test_search_upstream_failure_has_empty_data(client, mock_workers):  # U-API-17
     mock_workers["SEARCH"].search_item.return_value = {"passed": False, "exception": {"error_type": "X"}}
     response = client.get("/search/dune?media_type=book&page=2")
     assert response.status_code == 500
     assert response.get_json()["data"] == []
+
+
+def test_bulk_add_item_failures_do_not_leak_internals(client, mock_workers):  # U-API-19
+    mock_workers["ITEM"].add_items_to_collection.return_value = {
+        "passed": True, "added": [], "already_existed": [],
+        "failed": [{
+            "item": {"title": "Dune", "original_api_id": "api-1"},
+            "error": {"passed": False, "step_failed": "insert_item",
+                      "exception": {"traceback": "Traceback (most recent call last)", "context": {"user_id": "user_1"}}},
+        }],
+    }
+    response = client.put("/collection/items", json=[item_payload()])
+    assert response.status_code == 200
+    assert "Traceback" not in response.get_data(as_text=True)
+    assert "user_1" not in response.get_data(as_text=True)
+    assert response.get_json()["data"]["failed"][0]["error"] == "Internal server error at step 'insert_item'"
 
 
 def test_search_forwards_filters_and_next_page(client, mock_workers):  # U-API-18
@@ -251,7 +264,6 @@ def test_search_forwards_filters_and_next_page(client, mock_workers):  # U-API-1
     assert body["data"][0]["media_type"] == "book"
 
 
-@pytest.mark.xfail(reason="B4: 500 responses return the worker's traceback and context to the client")
 @pytest.mark.parametrize("method, path, body, worker, worker_method, ok", USER_SCOPED_ROUTES, ids=USER_SCOPED_IDS)
 def test_500_bodies_do_not_leak_internals(client, mock_workers, method, path, body, worker, worker_method, ok):  # U-API-19
     stub_success(mock_workers, worker, worker_method, ok)

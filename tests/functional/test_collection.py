@@ -212,7 +212,6 @@ def test_user_without_a_row_gets_a_404(client_as, db):  # F-COL-25
     assert db.count("collection_items") == 0
 
 
-@pytest.mark.xfail(reason="B4: 500 responses return the traceback to the client")
 def test_db_failure_doesnt_leak_a_traceback(user_a):  # F-COL-26
     response = add(user_a, release_year="not a year")
     assert response.status_code == 500

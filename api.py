@@ -41,7 +41,10 @@ def lookup_data(title, user_id=None):
     logging.info(f'media_type provided with search request {media_type}')
     if media_type == None:
         logging.error("No media_type provided with request")
-        return create_response(False, 400, [], "No media_type provided with request")
+        return create_response(False, 400, None, [], "No media_type provided with request")
+    if media_type not in SearchWorker.MEDIA_TYPES:
+        logging.error(f"Unrecognized media_type provided with request: {media_type}")
+        return create_response(False, 400, None, [], f"media_type must be one of [{', '.join(SearchWorker.MEDIA_TYPES)}]")
 
     # Collect all query params except media_type and page as search filter options
     search_options = {}
@@ -54,7 +57,7 @@ def lookup_data(title, user_id=None):
     lookup_response = workers['SEARCH'].search_item(title, media_type, pagination_key, search_options)
 
     if not lookup_response['passed']:
-        return create_response(False, 500, [], pagination_key, lookup_response['exception'])
+        return worker_failure(lookup_response)
     else:
         return create_response(True, 200, lookup_response['next_page'], lookup_response['items'])
 
@@ -70,7 +73,7 @@ def get_collection(user_id=None):
     result = workers['ITEM'].get_user_collection(user_id, page)
 
     if not result['passed']:
-        return create_response(False, 500, None, [], result)
+        return worker_failure(result)
 
     return create_response(True, 200, result['next_page'], [asdict(item) for item in result['items']])
 
@@ -112,7 +115,7 @@ def add_item_to_collection(user_id=None):
     result = workers['ITEM'].add_item_to_collection(user_id, item)
 
     if not result['passed']:
-        return create_response(False, 500, None, [], result)
+        return worker_failure(result)
     else:
         return create_response(True, 200, None, result)
 
@@ -127,7 +130,7 @@ def remove_item_from_collection(user_id=None):
     result = workers['ITEM'].remove_item_from_collection(user_id, data['id'])
 
     if not result['passed']:
-        return create_response(False, 500, None, [], result)
+        return worker_failure(result)
     else:
         return create_response(True, 200, None, result)
 
@@ -170,7 +173,10 @@ def add_items_to_collection(user_id=None):
     result = workers['ITEM'].add_items_to_collection(user_id, items)
 
     if not result['passed']:
-        return create_response(False, 500, None, [], result)
+        return worker_failure(result)
+    # Per-item failures carry full failure objects; only send the client a summary of each
+    for failure in result.get('failed', []):
+        failure['error'] = public_error_message(failure['error'])
     return create_response(True, 200, None, result)
 
 
@@ -184,7 +190,7 @@ def remove_items_from_collection(user_id=None):
     result = workers['ITEM'].remove_items_from_collection(user_id, data['ids'])
 
     if not result['passed']:
-        return create_response(False, 500, None, [], result)
+        return worker_failure(result)
     return create_response(True, 200, None, result)
 
 
@@ -194,7 +200,7 @@ def get_list_names(user_id=None):
     result = workers['LIST'].get_list_names(user_id)
 
     if not result['passed']:
-        return create_response(False, 500, None, [], result)
+        return worker_failure(result)
     return create_response(True, 200, None, result['lists'])
 
 
@@ -234,13 +240,13 @@ def add_item_to_list(list_id, user_id=None):
 
     add_item_result = workers['ITEM'].add_item(item)
     if not add_item_result['passed']:
-        return create_response(False, 500, None, [], add_item_result)
+        return worker_failure(add_item_result)
 
     item_id = add_item_result['Item'].id
 
     list_result = workers['LIST'].add_item_to_list(user_id, list_id, item_id)
     if not list_result['passed']:
-        return create_response(False, 500, None, [], list_result)
+        return worker_failure(list_result)
     if list_result['not_found']:
         return create_response(False, 404, None, [], "List not found")
     return create_response(True, 200, None, list_result)
@@ -252,7 +258,7 @@ def get_lists_containing_item(item_id, user_id=None):
     result = workers['LIST'].get_lists_containing_item(user_id, item_id)
 
     if not result['passed']:
-        return create_response(False, 500, None, [], result)
+        return worker_failure(result)
     return create_response(True, 200, None, result['lists'])
 
 
@@ -265,7 +271,7 @@ def remove_item_from_list(list_id, user_id=None):
 
     list_result = workers['LIST'].remove_item_from_list(user_id, list_id, data['id'])
     if not list_result['passed']:
-        return create_response(False, 500, None, [], list_result)
+        return worker_failure(list_result)
     if list_result['not_found']:
         return create_response(False, 404, None, [], "List not found")
     return create_response(True, 200, None, list_result)
@@ -282,7 +288,7 @@ def get_list(list_id, user_id=None):
     result = workers['LIST'].get_list(user_id, list_id, page)
 
     if not result['passed']:
-        return create_response(False, 500, None, [], result)
+        return worker_failure(result)
     if result['not_found']:
         return create_response(False, 404, None, [], "List not found")
     return create_response(True, 200, result['next_page'], [asdict(item) for item in result['items']])
@@ -297,7 +303,9 @@ def rename_list(list_id, user_id=None):
     result = workers['LIST'].change_list_name(user_id, list_id, data['list_name'])
 
     if not result['passed']:
-        return create_response(False, 500, None, [], result)
+        return worker_failure(result)
+    if result['not_found']:
+        return create_response(False, 404, None, [], "List not found")
     return create_response(True, 200, None, result)
 
 
@@ -308,7 +316,7 @@ def delete_list(list_id, user_id=None):
     result = workers['LIST'].delete_list(user_id, list_id)
 
     if not result['passed']:
-        return create_response(False, 500, None, [], result)
+        return worker_failure(result)
     if result['not_found']:
         return create_response(False, 404, None, [], "List not found")
     return create_response(True, 200, None, [])
@@ -320,7 +328,7 @@ def get_user_lists(user_id=None):
     result = workers['LIST'].get_user_lists(user_id)
 
     if not result['passed']:
-        return create_response(False, 500, None, [], result)
+        return worker_failure(result)
     return create_response(True, 200, None, result['lists'])
 
 
@@ -334,7 +342,7 @@ def create_list(user_id=None):
     result = workers['LIST'].create_list(user_id, data['list_name'])
 
     if not result['passed']:
-        return create_response(False, 500, None, [], result)
+        return worker_failure(result)
     return create_response(True, 200, None, result)
 
 
@@ -364,7 +372,7 @@ def clerk_webhook(payload=None):
         if result['passed']:
             return create_response(True, 200, None, result)
         else:
-            return create_response(False, 500, None, [], result)
+            return worker_failure(result)
 
     elif event_type == 'user.deleted':
         clerk_user_id = data.get('id')
@@ -374,12 +382,23 @@ def clerk_webhook(payload=None):
         if result['passed']:
             return create_response(True, 200, None, result)
         else:
-            return create_response(False, 500, None, [], result)
+            return worker_failure(result)
 
     else:
         # Ignore other event types
         logging.info(f"Ignoring unhandled Clerk webhook event: {event_type}")
         return create_response(True, 200, None, {'message': f'Event {event_type} ignored'})
+
+
+def public_error_message(failure):
+    # Worker failure objects hold tracebacks and call arguments (including user IDs), which stay
+    # in the server logs. Clients only get the step that failed.
+    step = failure.get('step_failed') if isinstance(failure, dict) else None
+    return f"Internal server error at step '{step}'" if step else "Internal server error"
+
+
+def worker_failure(failure):
+    return create_response(False, 500, None, [], public_error_message(failure))
 
 
 def create_response(passed, status_code, page, data=[], err_msg=''):

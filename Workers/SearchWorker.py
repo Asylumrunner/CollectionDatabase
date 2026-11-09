@@ -14,6 +14,11 @@ from datetime import datetime
 import time
 
 class SearchWorker(BaseWorker):
+    MEDIA_TYPES = ("book", "movie", "video_game", "board_game", "rpg", "anime", "album")
+
+    # Refresh the IGDB token this many seconds before it actually expires
+    IGDB_TOKEN_REFRESH_MARGIN = 300
+
     def __init__(self):
         # Used for Anime Lookup
         self.jikan_client = Jikan()
@@ -70,6 +75,12 @@ class SearchWorker(BaseWorker):
             "Authorization": f"Bearer {self.IGDB_Access_Token}",
         }
 
+    def refresh_IGDB_Access_Token_if_expiring(self):
+        token_age = (datetime.now() - self.IGDB_Token_Last_Set).total_seconds()
+        if token_age >= self.IGDB_Time_Until_Token_Refresh - self.IGDB_TOKEN_REFRESH_MARGIN:
+            logging.info("IGDB access token is expiring, fetching a new one...")
+            self.get_IGDB_Access_Token()
+
     def search_item(self, name, media_type, pagination_key=None, search_options=None):
         pagination_key = pagination_key if pagination_key else 1
         search_options = search_options if search_options else {}
@@ -84,7 +95,7 @@ class SearchWorker(BaseWorker):
         }
         if media_type not in lookups:
             logging.error("media_type passed to LookupWorker not recognized")
-            error = ValueError(f'media_type {media_type} not recognized. Please use one of [book, movie, video_game, board_game, rpg, anime, album]')
+            error = ValueError(f'media_type {media_type} not recognized. Please use one of [{", ".join(self.MEDIA_TYPES)}]')
             return self._failure_response(error, "search_item", "dispatch", media_type=media_type)
 
         logging.info(f"Search started: media_type={media_type} query={name!r} page={pagination_key} search_options={search_options}")
@@ -292,6 +303,9 @@ class SearchWorker(BaseWorker):
             offset = (int(pagination_key) - 1) * 25
             request_body = f'search "{safe_title}"; limit 25; offset {offset}; fields {self.vg_lookup_fields};{where_clause}'
 
+            current_step = "refresh_token"
+            self.refresh_IGDB_Access_Token_if_expiring()
+
             current_step = "fetch_results"
             req = requests.post(self.vg_lookup_url, data=request_body, headers=self.IGDB_headers).json()
 
@@ -404,21 +418,18 @@ class SearchWorker(BaseWorker):
         return response
 
     def rpg_detail_lookup(self, child):
-        item_dict = {}
         guid = child.get('id', '00000')
         item_search_req = requests.get(f"{self.rpggeek_base_url}/thing", params={"id": guid}, headers=self.bgg_header)
         search_root = ET.fromstring(item_search_req.content).find('./item')
         if search_root:
             names = [name.get('value', 'ERROR') for name in search_root.iterfind('name') if name.get('type', 'alternate') == 'primary']
-            item_dict['title'] = names[0]
-            item_dict['img_link'] = search_root.find('./image').text if search_root.find('./image') is not None else None
+            title = names[0]
+            img_link = search_root.find('./image').text if search_root.find('./image') is not None else None
             designers = [designer.get('value') for designer in search_root.iterfind('link') if designer.get('type', 'none') == 'rpgdesigner']
-            item_dict['created_by'] = designers
-            item_dict['release_year'] = search_root.find('./yearpublished').get('value', '0')
-            item_dict['original_api_id'] = guid
-            item_dict['summary'] = search_root.find('./description').text
-            item_dict['media_type'] = "rpg"
-            return item_dict
+            release_year = search_root.find('./yearpublished').get('value', '0')
+            summary = search_root.find('./description').text
+            media_type = "rpg"
+            return Item(guid, title, media_type, release_year, img_link, guid, designers, summary=summary)
         else:
             return {}
     

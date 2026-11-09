@@ -110,7 +110,6 @@ def test_null_names_become_unknown(send_webhook, db):  # F-WH-9
     assert db.scalar("SELECT username FROM users") == "Unknown"
 
 
-@pytest.mark.xfail(reason="B4: 500 responses return the traceback to the client")
 def test_created_event_without_an_id_fails_without_leaking(send_webhook, db):  # F-WH-10
     response = send_webhook("user.created", {"email_addresses": EMAIL})
     assert response.status_code >= 400

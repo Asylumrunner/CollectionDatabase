@@ -124,10 +124,17 @@ def test_delete_list_removes_items_before_the_list(list_worker, db):  # U-LIST-1
     assert db.count("commit") == 1
 
 
-@pytest.mark.xfail(reason="B9: renaming reports success even when no row was updated")
 def test_rename_reports_a_missing_list(list_worker, db):  # U-LIST-13
     db.on("UPDATE user_lists", rowcount=0)
     assert list_worker.change_list_name("clerk_1", 3, "New name").get("not_found") is True
+
+
+def test_rename_to_the_current_name_still_succeeds(list_worker, db):  # U-LIST-13
+    # MySQL reports 0 affected rows when the name doesn't change, so that alone isn't "not found"
+    db.on("UPDATE user_lists", rowcount=0)
+    _owned(db)
+    result = list_worker.change_list_name("clerk_1", 3, "Favorites")
+    assert result["passed"] and result["not_found"] is False
 
 
 def test_rename_updates_only_the_callers_list(list_worker, db):  # U-LIST-14
