@@ -7,7 +7,8 @@ A database application for cataloging my collection of physical media, powered b
 3. [APIs In Use](https://www.github.com/Asylumrunner/CollectionDatabase#apis-in-use)
 4. [Architecture](https://www.github.com/Asylumrunner/CollectionDatabase#architecture)
 5. [Local Development](https://www.github.com/Asylumrunner/CollectionDatabase#local-development)
-6. [Endpoint Documentation](https://www.github.com/Asylumrunner/CollectionDatabase#endpoint-documentation)
+6. [Running Tests](https://www.github.com/Asylumrunner/CollectionDatabase#running-tests)
+7. [Endpoint Documentation](https://www.github.com/Asylumrunner/CollectionDatabase#endpoint-documentation)
 
 ## Background
 Like a lot of people with nerdy sensibilities, I own a lot of physical media, from video games to movies to books to tabletop RPGs to board and card games. I've found that having a large digital record of this collection is fairly useful for a variety of reasons, including but not limited to:
@@ -67,6 +68,63 @@ docker run -p 3306:3306 \
   -e MYSQL_DATABASE=collectionDB \
   collectiondb-mysql
 ```
+
+## Running Tests
+
+The tests come in two tiers:
+
+* **Unit tests** (`tests/unit`) fake the database, Clerk and every third-party API, so they run offline with no credentials.
+* **Functional tests** (`tests/functional`) run the real app against a real MySQL 8.0 database, with real Clerk token verification and Svix webhook signatures. Only the third-party APIs are stubbed.
+
+Neither tier reads `Workers/secrets.py` or `local_db_config.json`, so the tests never touch your real keys or your dev database.
+
+**Install the test dependencies** (run everything here from the repo root, with your virtualenv active):
+```bash
+pip install -r requirements-dev.txt
+```
+
+### Unit tests
+```bash
+python -m pytest tests/unit
+```
+
+### Functional tests
+These need a MySQL server. There are two ways to provide one.
+
+**Option 1: Docker (recommended).** The tests start their own throwaway `mysql:8.0` container, load `SQL/database.sql` into it and remove it when they finish. Your user needs access to Docker:
+```bash
+sudo usermod -aG docker $USER
+```
+Log out and back in for the group change to take effect. If you run tests from an editor's terminal, restart the editor too. The first run downloads the MySQL image.
+
+```bash
+python -m pytest tests/functional
+```
+
+**Option 2: an existing MySQL server.** Point the tests at it with environment variables. The user must be able to create and drop databases. The tests drop and recreate a database called `collection_test` and leave every other database alone, but use a disposable server anyway:
+```bash
+TEST_DB_HOST=127.0.0.1 TEST_DB_PORT=3306 TEST_DB_USER=root TEST_DB_PASSWORD=yourpassword \
+  python -m pytest tests/functional
+```
+
+Without either option, the functional tests that need a database fail with an error explaining why. The rest still run.
+
+### Useful commands
+
+| To do this | Run |
+|---|---|
+| Run everything | `python -m pytest` |
+| Run one file | `python -m pytest tests/unit/test_auth.py` |
+| Run tests matching a name | `python -m pytest -k skip_auth` |
+| Stop at the first failure, with print output | `python -m pytest -x -s` |
+| List known bugs and their reasons | `python -m pytest -rx` |
+| See how the known bugs actually fail | `python -m pytest --runxfail` |
+| Check coverage (fails under 85%) | `python -m pytest tests/unit --cov=api --cov=Workers --cov=Utilities --cov-report=term-missing` |
+
+### Known bugs and `xfail`
+Some tests describe the correct behaviour for bugs that haven't been fixed yet. They're marked `@pytest.mark.xfail(reason="B#")` and show up as `xfailed`, which is expected and doesn't fail the run.
+
+When you fix one of those bugs, its test starts passing, and pytest reports that as a failure (`XPASS(strict)`). This is deliberate: it reminds you to remove the test's `xfail` marker so it becomes a normal test.
 
 ## Endpoint Documentation
 
