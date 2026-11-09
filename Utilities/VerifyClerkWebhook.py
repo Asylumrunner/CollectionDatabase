@@ -51,10 +51,6 @@ def verify_clerk_webhook(f):
             wh = Webhook(webhook_secret)
             verified_payload = wh.verify(payload, headers)
 
-            # Pass the verified payload to the handler
-            kwargs['payload'] = verified_payload
-            return f(*args, **kwargs)
-
         except WebhookVerificationError as e:
             logger.warning(f"Webhook verification failed: {e}")
             return jsonify({
@@ -63,6 +59,17 @@ def verify_clerk_webhook(f):
             }), 400
         except Exception as e:
             logger.error(f"Unexpected error verifying webhook: {e}")
+            return jsonify({
+                'status': 'FAILURE',
+                'err_msg': "Error processing webhook"
+            }), 500
+
+        # Separate from the try above so handler errors aren't reported as verification failures
+        kwargs['payload'] = verified_payload
+        try:
+            return f(*args, **kwargs)
+        except Exception:
+            logger.exception("Webhook handler failed")
             return jsonify({
                 'status': 'FAILURE',
                 'err_msg': "Error processing webhook"
