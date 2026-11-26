@@ -3,6 +3,7 @@ from Workers.secrets import secrets
 from Workers.BaseWorker import BaseWorker
 from DataClasses.item import Item
 from DataClasses.igdb_platforms import get_platform_id
+from Utilities.RedactSecrets import redact_secrets
 from jikanpy import Jikan
 import discogs_client
 import xml.etree.ElementTree as ET
@@ -61,7 +62,9 @@ class SearchWorker(BaseWorker):
         super().__init__()
 
     def get_IGDB_Access_Token(self):
-        access_token_response = requests.post("https://id.twitch.tv/oauth2/token", params={
+        # Credentials go in the form body rather than the query string, so the client secret never
+        # appears in a URL, where urllib3's logging or a requests exception message could expose it
+        access_token_response = requests.post("https://id.twitch.tv/oauth2/token", data={
             "client_id": self.IGDB_Client_ID,
             "client_secret": self.IGDB_Client_Secret,
             "grant_type": "client_credentials",
@@ -118,7 +121,8 @@ class SearchWorker(BaseWorker):
             exception = response.get("exception")
             error_type = exception.get("error_type") if isinstance(exception, dict) else None
             error_message = exception.get("error_message") if isinstance(exception, dict) else exception
-            logging.warning(f"Search failed: {summary} error_type={error_type} error_message={error_message!r}")
+            # error_message is str(e), which for a failed HTTP request includes the URL and any key in it
+            logging.warning(f"Search failed: {summary} error_type={error_type} error_message={redact_secrets(error_message)!r}")
         
     def lookup_book(self, title, pagination_key, search_options={}):
         response = {"items": [], "passed": False}
@@ -250,7 +254,8 @@ class SearchWorker(BaseWorker):
             response["passed"] = True
             response["next_page"] = int(pagination_key) + 1
         except Exception as e:
-            logging.error(f"Exception in lookup for title {title} in MovieController at step {current_step}: {e}")
+            # TMDB's api_key is a query parameter, so a failed request's message contains it
+            logging.error(f"Exception in lookup for title {title} in MovieController at step {current_step}: {redact_secrets(e)}")
             return self._failure_response(
                 e, "lookup_movie", current_step,
                 title=title,
@@ -572,13 +577,14 @@ class SearchWorker(BaseWorker):
                     response['items'].append(item)
                 except Exception as master_error:
                     # If we can't get full details, skip this master
-                    logging.warning(f"Could not fetch details for master {master.id}: {master_error}")
+                    logging.warning(f"Could not fetch details for master {master.id}: {redact_secrets(master_error)}")
                     continue
 
             response['next_page'] = int(pagination_key) + 1
             response['passed'] = True
         except Exception as e:
-            logging.error(f"Exception in lookup for album {album} in MusicController at step {current_step}: {e}")
+            # The Discogs client sends its token as a query parameter, so a failed request's message contains it
+            logging.error(f"Exception in lookup for album {album} in MusicController at step {current_step}: {redact_secrets(e)}")
             return self._failure_response(
                 e, "lookup_music", current_step,
                 album=album,

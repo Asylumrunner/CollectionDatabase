@@ -328,3 +328,21 @@ def test_empty_payload_is_a_400(client):  # U-API-22
 def test_webhook_worker_failure_is_a_500(client, mock_workers, event_type, worker_method):  # U-API-22
     getattr(mock_workers["USER"], worker_method).return_value = {"passed": False, "exception": "boom"}
     assert post_webhook(client, {"type": event_type, "data": {"id": "clerk_1"}}).status_code == 500
+
+
+def test_urllib3_request_urls_are_not_logged(api_module):  # U-API-23
+    # urllib3 logs full request URLs at DEBUG, and TMDB and Discogs keys travel in the query string.
+    # Checks urllib3's own level, not its effective one, so it can't pass by inheriting from the root
+    import logging
+    assert logging.getLogger("urllib3").level >= logging.WARNING
+
+
+def test_deployed_logging_settings():  # U-API-24
+    # At DEBUG, Lambda logs urllib3's request URLs and Zappa's raw request dumps (auth headers,
+    # webhook bodies). Zappa's debug flag also puts tracebacks in 500 response bodies
+    import json
+    import pathlib
+    settings = json.loads((pathlib.Path(__file__).parents[2] / "zappa_settings.json").read_text())
+    for stage in settings.values():
+        assert stage["log_level"] == "INFO"
+        assert stage["debug"] is False

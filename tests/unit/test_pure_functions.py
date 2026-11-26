@@ -1,7 +1,8 @@
-"""U-RES, U-PLAT and U-GIF: small functions with no collaborators."""
+"""U-RES, U-PLAT, U-GIF and U-RED: small functions with no collaborators."""
 import pytest
 
 from DataClasses.igdb_platforms import get_platform_id, get_supported_platforms
+from Utilities.RedactSecrets import redact_secrets
 from Utilities.ResolveUserId import resolve_user_id
 from Workers.SearchWorker import getIfUseful
 
@@ -75,3 +76,25 @@ def test_get_if_useful_follows_key_paths():  # U-GIF-4
 @pytest.mark.parametrize("data", [{}, {"a": {}}, {"a": {"b": 0}}, {"a": None}])
 def test_get_if_useful_defaults_when_a_path_step_is_missing_or_falsy(data):  # U-GIF-5
     assert getIfUseful(data, ["a", "b"], "default") == "default"
+
+
+@pytest.mark.parametrize("param", ["api_key", "token", "access_token", "client_secret", "API_KEY"])
+def test_redact_secrets_hides_credential_query_params(param):  # U-RED-1
+    redacted = redact_secrets(f"Max retries exceeded with url: /3/movie/1?{param}=s3cr3t&query=dune (Caused by ...)")
+    assert "s3cr3t" not in redacted
+    assert f"{param}=REDACTED&query=dune (Caused by ...)" in redacted
+
+
+def test_redact_secrets_handles_several_params_and_quotes():  # U-RED-2
+    text = "url='https://x.test/?token=aaa&page=2&client_secret=bbb'"
+    assert redact_secrets(text) == "url='https://x.test/?token=REDACTED&page=2&client_secret=REDACTED'"
+
+
+def test_redact_secrets_leaves_other_text_alone():  # U-RED-3
+    text = "Search failed: query='token ring' page=2 access_tokens_used=3"
+    assert redact_secrets(text) == text
+
+
+def test_redact_secrets_accepts_exceptions_and_none():  # U-RED-4
+    assert redact_secrets(ValueError("GET /x?api_key=abc")) == "GET /x?api_key=REDACTED"
+    assert redact_secrets(None) is None

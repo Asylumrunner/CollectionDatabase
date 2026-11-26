@@ -80,3 +80,12 @@ def test_expired_token_is_refreshed_before_searching(search_worker, rsps):  # U-
     search_worker.IGDB_Time_Until_Token_Refresh = 3600
     search_worker.lookup_video_game("dune", 1)
     assert rsps.calls[-1].request.headers["Authorization"] == "Bearer new-token"
+
+
+def test_igdb_credentials_are_sent_in_the_body_not_the_url(search_worker, rsps):  # U-SD-9
+    rsps.post("https://id.twitch.tv/oauth2/token", json={"access_token": "new-token", "expires_in": 3600})
+    search_worker.get_IGDB_Access_Token()
+    request = rsps.calls[0].request
+    assert "fake-igdb-secret" not in request.url
+    assert "client_secret=fake-igdb-secret" in request.body
+    assert search_worker.IGDB_Access_Token == "new-token"

@@ -13,6 +13,9 @@ from dataclasses import asdict
 import logging
 
 logging.basicConfig(level=logging.DEBUG, format='%(asctime)s %(levelname)s %(name)s: %(message)s')
+# urllib3 logs every request URL, query string included, at DEBUG. TMDB and Discogs take their API
+# keys as query parameters, so keep it quiet whatever level the rest of the app runs at
+logging.getLogger("urllib3").setLevel(logging.WARNING)
 
 app = flask.Flask(__name__)
 app.config['DEBUG'] = True

@@ -2,6 +2,8 @@
     "dev": {
         "app_function": "api.app",
         "aws_region": "us-west-1",
+        "log_level": "INFO",
+        "debug": false,
         "profile_name": "default",
         "project_name": "collectiondatab",
         "runtime": "python3.12",

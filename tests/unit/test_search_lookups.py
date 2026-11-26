@@ -126,6 +126,20 @@ def register_movie_search(rsps, *movie_ids):
     rsps.get(f"{TMDB}/search/movie", json={"results": [{"id": i} for i in movie_ids]})
 
 
+def test_movie_connection_errors_are_logged_without_the_api_key(search_worker, rsps, caplog):  # U-MOV-8
+    # Like the real thing, the error message carries the full request URL, api_key included
+    def connection_refused(request):
+        raise requests.exceptions.ConnectionError(f"Max retries exceeded with url: {request.path_url} (Caused by refusal)")
+
+    rsps.add_callback("GET", f"{TMDB}/search/movie", callback=connection_refused)
+    result = search_worker.search_item("dune", "movie")
+    assert result["passed"] is False
+    assert "fake-tmdb-key" not in caplog.text
+    assert "MovieController at step fetch_results" in caplog.text
+    assert "Search failed" in caplog.text
+    assert caplog.text.count("api_key=REDACTED&query=dune") == 2
+
+
 def test_movie_options_are_filtered(search_worker, rsps):  # U-MOV-1
     register_movie_search(rsps)
     options = {"include_adult": "true", "language": "en", "primary_release_year": "1999",
@@ -518,6 +532,23 @@ def test_music_failed_master_is_skipped(search_worker, caplog):  # U-MUS-4
 def test_music_search_error_fails(search_worker):  # U-MUS-5
     stub_discogs(search_worker, search_error=RuntimeError("rate limited"))
     assert search_worker.lookup_music("x", 1)["passed"] is False
+
+
+DISCOGS_ERROR = "Max retries exceeded with url: /database/search?release_title=x&token=fake-discogs-token"
+
+
+def test_music_search_errors_are_logged_without_the_token(search_worker, caplog):  # U-MUS-6
+    stub_discogs(search_worker, search_error=requests.exceptions.ConnectionError(DISCOGS_ERROR))
+    search_worker.search_item("x", "album")
+    assert "fake-discogs-token" not in caplog.text
+    assert caplog.text.count("token=REDACTED") == 2
+
+
+def test_music_failed_master_is_logged_without_the_token(search_worker, caplog):  # U-MUS-6
+    stub_discogs(search_worker, requests.exceptions.ConnectionError(DISCOGS_ERROR.replace("database/search", "masters/1")))
+    search_worker.lookup_music("x", 1)
+    assert "fake-discogs-token" not in caplog.text
+    assert "/masters/1?release_title=x&token=REDACTED" in caplog.text
 
 
 # ---- Paging behaviour shared by all seven lookups

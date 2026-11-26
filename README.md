@@ -46,6 +46,8 @@ Credentials are read from `Workers/secrets.py`, which is gitignored and has to b
 
 OpenLibrary and Jikan don't need credentials.
 
+Some of these credentials end up in request URLs: TMDB and Discogs only accept their keys as query parameters. To keep them out of the logs, `zappa_settings.json` sets `"log_level": "INFO"` and `"debug": false`. At DEBUG, the Lambda logs would contain every outgoing request URL and every raw incoming request, including users' session tokens and the email addresses in Clerk webhooks. `api.py` also holds the `urllib3` logger at WARNING, and the search lookups pass exception messages through `redact_secrets` (`Utilities/RedactSecrets.py`) before logging them, since a failed request's message contains its URL. If you add an API that takes a key in its query string, check that the parameter name is one `redact_secrets` recognizes.
+
 For local development, create `local_db_config.json` in the repo root (also gitignored). When it exists, it takes priority over the database keys in `secrets.py`:
 ```json
 {
