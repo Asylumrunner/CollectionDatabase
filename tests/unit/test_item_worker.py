@@ -1,3 +1,4 @@
+import dataclasses
 from types import SimpleNamespace
 from unittest import mock
 
@@ -363,3 +364,10 @@ def test_add_to_collection_failures_report_their_step(item_worker, db, failing_s
     assert result["passed"] is False
     assert result["step_failed"] == step
     assert db.count("rollback") == 1
+
+
+def test_non_database_failures_log_where_they_happened(item_worker, caplog):  # U-ITEM-38
+    result = item_worker.add_item(dataclasses.replace(make_item(), media_type="not_a_media_type"))
+    assert result["passed"] is False
+    assert "stack=ItemWorker.py:add_item:" in caplog.text
+    assert "Unknown media type" not in caplog.text

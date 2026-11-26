@@ -14,7 +14,8 @@ import traceback
 # Set up logging
 logger = logging.getLogger(__name__)
 
-_LOCAL_CONFIG_PATH = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'local_db_config.json')
+_PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+_LOCAL_CONFIG_PATH = os.path.join(_PROJECT_ROOT, 'local_db_config.json')
 
 _POOL_SIZE = 5
 # Thresholds above which connection activity is logged as a warning
@@ -29,6 +30,18 @@ def _find_caller():
     if not frame:
         return "unknown"
     return f"{os.path.basename(frame.f_code.co_filename)}:{frame.f_code.co_name}:{frame.f_lineno}"
+
+def _exception_stack(e):
+    # Where an exception travelled, from the frame that caught it to the line that raised it, as
+    # "File.py:function:line" hops joined by " > ". Library frames are dropped, except the one that
+    # raised. Only code locations are included, never the message or any values
+    frames = traceback.extract_tb(e.__traceback__)
+    if not frames:
+        return "unknown"
+    hops = [f for f in frames if f.filename.startswith(_PROJECT_ROOT + os.sep) and "site-packages" not in f.filename]
+    if not hops or hops[-1] is not frames[-1]:
+        hops.append(frames[-1])
+    return " > ".join(f"{os.path.basename(f.filename)}:{f.name}:{f.lineno}" for f in hops)
 
 class BaseWorker():
     media_type_mappings = {}
@@ -101,9 +114,10 @@ class BaseWorker():
                 connection.close()
 
     def _error_log_fields(self, e):
-        # Formats a DB exception into safe, structured log fields for subclasses to use.
-        # Log error codes only; exception messages can echo user identifiers or row values back
-        return f"error_type={type(e).__name__} errno={getattr(e, 'errno', None)} sqlstate={getattr(e, 'sqlstate', None)}"
+        # Formats an exception into safe, structured log fields for subclasses to use: its type, MySQL
+        # error codes, and the code locations it passed through. The message is left out, since
+        # exception messages can echo user identifiers or row values back
+        return f"error_type={type(e).__name__} errno={getattr(e, 'errno', None)} sqlstate={getattr(e, 'sqlstate', None)} stack={_exception_stack(e)}"
 
     def _failure_response(self, exception, function, step, **context):
         # Builds the response every worker method returns when it fails:
@@ -211,28 +225,23 @@ class BaseWorker():
                 logger.warning(f"Connection held a long time: id={connection.connection_id} caller={_find_caller()} held_ms={held_ms:.0f}")
             connection.close()  # Returns to pool
 
+    # Neither context logs errors raised inside its block: those are the caller's queries, and every
+    # worker method logs its own failures with _error_log_fields. Logging them here too would log each
+    # one twice, the second time with the raw message, which can contain user identifiers
     @contextmanager
     def get_connection_context(self):
         # Yields a pooled connection. Use when you need multiple cursors or manual commit/rollback.
-        try:
-            with self._checked_out_connection() as connection:
-                yield connection
-        except Error as e:
-            logger.error(f"Database error in connection context: {e}")
-            raise
+        with self._checked_out_connection() as connection:
+            yield connection
 
     @contextmanager
     def get_cursor_context(self, dictionary=False):
         # Yields a cursor on a pooled connection; cursor and connection are cleaned up on exit.
         # Use for simple read queries. Does not commit. dictionary=True returns rows as dicts.
-        try:
-            with self._checked_out_connection() as connection:
-                cursor = connection.cursor(dictionary=dictionary)
-                try:
-                    yield cursor
-                finally:
-                    cursor.close()
-        except Error as e:
-            logger.error(f"Database error in cursor context: {e}")
-            raise
+        with self._checked_out_connection() as connection:
+            cursor = connection.cursor(dictionary=dictionary)
+            try:
+                yield cursor
+            finally:
+                cursor.close()
 

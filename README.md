@@ -88,7 +88,7 @@ Every search goes to exactly one of these APIs, picked by the `media_type` of th
 ## Architecture
 The Flask app in `api.py` creates one instance of each worker at startup and keeps them in a dictionary keyed by name (`SEARCH`, `ITEM`, `USER` and `LIST`). Routes check the request, hand the actual work to the right worker, and wrap whatever comes back in the standard response envelope described in [Endpoint Documentation](https://www.github.com/Asylumrunner/CollectionDatabase#endpoint-documentation).
 
-Worker methods don't raise errors to the routes. Every one returns a dictionary with a `passed` flag, and on failure that dictionary also carries `step_failed` (the stage of the method that broke, such as `resolve_user_id` or `insert_item`) and an `exception` object with the error type, message, traceback and the arguments the method was called with. The workers log failures without the user-identifying details. The routes only send the client the name of the step that failed (`worker_failure` in `api.py`).
+Worker methods don't raise errors to the routes. Every one returns a dictionary with a `passed` flag, and on failure that dictionary also carries `step_failed` (the stage of the method that broke, such as `resolve_user_id` or `insert_item`) and an `exception` object with the error type, message, traceback and the arguments the method was called with. That object isn't logged. Instead, each failure is logged once, with the step, the error type, any MySQL error codes, and a `stack` of the code locations the error passed through, such as `stack=ItemWorker.py:add_item:66`. Exception messages and call arguments are left out because they can contain user identifiers. The routes only send the client the name of the step that failed (`worker_failure` in `api.py`).
 
 ### Workers
 * **BaseWorker** (`Workers/BaseWorker.py`) - The parent class for all the other workers. On first use it creates a single MySQL connection pool of 5 connections that every worker shares, and loads the `media_types` table so media type names can be mapped to their database IDs. It provides context managers that check out a connection or cursor and always return it to the pool, logging a warning when a connection takes more than 100ms to acquire or is held for more than a second. It also holds the shared helpers for turning a database row into an `Item` and for building failure responses.
@@ -217,7 +217,7 @@ Every endpoint returns the same envelope:
 ```
 The Example Response sections below show only the contents of `data`. `next_page` is only used by paginated endpoints: pass it back as the `page` query parameter to get the next page. `null` means there are no more pages.
 
-On a 400, 401 or 404, `err_msg` is a string explaining what went wrong. On a 500, it only names the step that failed, such as `Internal server error at step 'insert_item'`. The full failure object, with its traceback, stays in the server logs (see [Architecture](https://www.github.com/Asylumrunner/CollectionDatabase#architecture)).
+On a 400, 401 or 404, `err_msg` is a string explaining what went wrong. On a 500, it only names the step that failed, such as `Internal server error at step 'insert_item'`. The server logs record the error type and the line of code where it happened (see [Architecture](https://www.github.com/Asylumrunner/CollectionDatabase#architecture)).
 
 ### Authentication
 Every endpoint except `GET /` and `POST /webhooks/clerk` requires a Clerk session token in the `Authorization` header:

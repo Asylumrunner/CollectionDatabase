@@ -55,3 +55,13 @@ def test_delete_user_does_not_commit_a_partial_delete(user_worker, db):  # U-USE
     assert result["passed"] is False
     assert db.count("commit") == 0
     assert db.count("close") == 1
+
+
+def test_db_errors_are_logged_once(user_worker, db, caplog):  # U-USER-7
+    db.fail_on("INSERT INTO users", Error(msg="Duplicate entry 'clerk_secret_id' for key 'clerk_user_id'", errno=1062, sqlstate="23000"))
+    user_worker.create_user("clerk_secret_id", "name")
+    errors = [record for record in caplog.records if record.levelname == "ERROR"]
+    assert len(errors) == 1
+    assert "errno=1062" in errors[0].getMessage()
+    assert "stack=UserWorker.py:create_user:" in errors[0].getMessage()
+    assert "clerk_secret_id" not in caplog.text

@@ -211,7 +211,6 @@ def test_non_database_errors_still_close_the_connection(db, caplog):  # U-BASE-1
     assert "Database error" not in caplog.text
 
 
-@pytest.mark.xfail(reason="B13: context managers log the raw DB message, which can echo identifiers")
 @pytest.mark.parametrize("context_name", ["get_connection_context", "get_cursor_context"])
 def test_raw_database_messages_are_not_logged(db, caplog, context_name):  # U-BASE-17
     worker = ItemWorker()
@@ -223,12 +222,45 @@ def test_raw_database_messages_are_not_logged(db, caplog, context_name):  # U-BA
 
 
 def test_error_log_fields_formats_database_errors():  # U-BASE-18
+    # Never raised, so there's no traceback to take a stack from
     fields = ItemWorker()._error_log_fields(Error(msg="secret value", errno=1062, sqlstate="23000"))
-    assert fields == "error_type=Error errno=1062 sqlstate=23000"
+    assert fields == "error_type=Error errno=1062 sqlstate=23000 stack=unknown"
 
 
 def test_error_log_fields_handles_errors_without_codes():  # U-BASE-18
-    assert ItemWorker()._error_log_fields(ValueError("x")) == "error_type=ValueError errno=None sqlstate=None"
+    assert ItemWorker()._error_log_fields(ValueError("x")) == "error_type=ValueError errno=None sqlstate=None stack=unknown"
+
+
+def _raise_with_user_data():
+    raise ValueError("No user found for clerk_user_id 'user_secret_123'")
+
+
+def test_error_log_fields_name_where_the_error_was_raised_but_not_its_message():  # U-BASE-20
+    def worker_method():
+        _raise_with_user_data()
+
+    try:
+        worker_method()
+    except ValueError as e:
+        stack = ItemWorker()._error_log_fields(e).split(" stack=")[1]
+    raise_line = _raise_with_user_data.__code__.co_firstlineno + 1
+    assert stack.split(" > ") == [
+        f"test_base_worker.py:test_error_log_fields_name_where_the_error_was_raised_but_not_its_message:{worker_method.__code__.co_firstlineno + 4}",
+        f"test_base_worker.py:worker_method:{worker_method.__code__.co_firstlineno + 1}",
+        f"test_base_worker.py:_raise_with_user_data:{raise_line}",
+    ]
+    assert "user_secret_123" not in stack
+
+
+def test_error_log_fields_keep_only_the_library_frame_that_raised():  # U-BASE-20
+    try:
+        json.loads("not json")
+    except ValueError as e:
+        hops = ItemWorker()._error_log_fields(e).split(" stack=")[1].split(" > ")
+    # json.loads passes through several stdlib frames; only the innermost one is kept
+    assert len(hops) == 2
+    assert hops[0].startswith("test_base_worker.py:test_error_log_fields_keep_only_the_library_frame_that_raised:")
+    assert hops[1].startswith("decoder.py:")
 
 
 def test_find_caller_reports_the_worker_method(db, monkeypatch, caplog):  # U-BASE-19
