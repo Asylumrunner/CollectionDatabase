@@ -1,15 +1,29 @@
 from Workers.secrets import secrets
-from clerk_backend_api import Clerk, ClerkError
+from Utilities.ExceptionStack import exception_stack
+from clerk_backend_api import Clerk
 from clerk_backend_api.security.types import AuthenticateRequestOptions
 from flask import request, jsonify
 from functools import wraps
-import sys
-import traceback
-import pprint
+import logging
 import os
+
+logger = logging.getLogger(__name__)
+
+# Clerk rejection reasons that point at a problem on our side (configuration, or Clerk's signing keys)
+# rather than at the request, so they're logged as errors. Every other reason is a bad, expired or
+# missing token, which is routine and logged as a warning
+_SERVER_SIDE_REASONS = {"secret-key-missing", "jwk-failed-to-load", "jwk-remote-invalid", "jwk-failed-to-resolve", "server-error"}
+
+_skip_auth_warned = False
+
+
+class NotAuthenticated(Exception):
+    """The request didn't carry a valid Clerk session."""
+
 
 def is_signed_in(request):
     if os.environ.get('SKIP_AUTH'):
+        _warn_auth_skipped()
         return os.environ.get('DEV_USER_ID', 'test_user_dev')
 
     try:
@@ -22,23 +36,43 @@ def is_signed_in(request):
                 ]
             )
         )
-        user = request_state.payload.get('sub', None)
     except Exception as e:
-        _exc_type, _exc_value, exc_traceback = sys.exc_info()
+        # Clerk couldn't check the request at all, as opposed to rejecting it: it's unreachable, or the
+        # secret key is missing. The message is left out since it can carry request details
+        logger.error(f"Authentication check failed: error_type={type(e).__name__} stack={exception_stack(e)}")
+        raise
 
-        pprint.pprint({
-            "error_type": type(e).__name__,
-            "error_message": str(e),
-            "traceback": traceback.format_exc(),
-            "traceback_lines": traceback.format_tb(exc_traceback),
-            "exception_args": e.args if hasattr(e, 'args') else None
-        })
-        raise e
+    # A rejected request has no payload, so this has to be checked before reading the user ID from it
+    if not request_state.is_signed_in:
+        reason = _reason_code(request_state)
+        log = logger.error if reason in _SERVER_SIDE_REASONS else logger.warning
+        log(f"Request not authenticated: reason={reason}")
+        raise NotAuthenticated("Request not authenticated")
 
-    if request_state.is_signed_in:
-        return user
-    else:
-        raise ClerkError("Request not authenticated")
+    user = (request_state.payload or {}).get('sub')
+    if not user:
+        logger.warning("Request not authenticated: reason=missing-subject")
+        raise NotAuthenticated("Request not authenticated")
+    return user
+
+
+def _reason_code(request_state):
+    # Clerk's reasons are enums whose value is a (code, description) pair, such as
+    # ('token-expired', 'Token has expired...'). Only the code is logged
+    reason = getattr(request_state, 'reason', None)
+    if reason is None:
+        return "unknown"
+    value = getattr(reason, 'value', reason)
+    return value[0] if isinstance(value, tuple) else str(value)
+
+
+def _warn_auth_skipped():
+    # Logged once per process rather than per request. The dev user's ID isn't logged, since it's a real Clerk ID
+    global _skip_auth_warned
+    if not _skip_auth_warned:
+        logger.warning("SKIP_AUTH is set: authentication is disabled and every request runs as DEV_USER_ID")
+        _skip_auth_warned = True
+
 
 def authenticated_endpoint(f):
     @wraps(f)
@@ -49,11 +83,13 @@ def authenticated_endpoint(f):
             # return that to the view
             # NOTE: this is the CLERK ID, not the username
             user_id = is_signed_in(request)
-        except Exception as e:
+        except Exception:
+            # is_signed_in has already logged why. The client gets a generic message, since the
+            # exception text can describe server internals
             response_object = {
                 'status': 'FAILURE',
                 'data': [],
-                'err_msg': str(e),
+                'err_msg': 'Not authenticated',
                 'next_page': ''
             }
             response = jsonify(response_object)

@@ -2,6 +2,7 @@ from contextlib import contextmanager
 import contextlib
 from Workers.secrets import secrets
 from DataClasses.item import Item
+from Utilities.ExceptionStack import exception_stack
 from mysql.connector import pooling, Error
 from mysql.connector.errors import PoolError
 import json
@@ -14,8 +15,7 @@ import traceback
 # Set up logging
 logger = logging.getLogger(__name__)
 
-_PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-_LOCAL_CONFIG_PATH = os.path.join(_PROJECT_ROOT, 'local_db_config.json')
+_LOCAL_CONFIG_PATH = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'local_db_config.json')
 
 _POOL_SIZE = 5
 # Thresholds above which connection activity is logged as a warning
@@ -30,18 +30,6 @@ def _find_caller():
     if not frame:
         return "unknown"
     return f"{os.path.basename(frame.f_code.co_filename)}:{frame.f_code.co_name}:{frame.f_lineno}"
-
-def _exception_stack(e):
-    # Where an exception travelled, from the frame that caught it to the line that raised it, as
-    # "File.py:function:line" hops joined by " > ". Library frames are dropped, except the one that
-    # raised. Only code locations are included, never the message or any values
-    frames = traceback.extract_tb(e.__traceback__)
-    if not frames:
-        return "unknown"
-    hops = [f for f in frames if f.filename.startswith(_PROJECT_ROOT + os.sep) and "site-packages" not in f.filename]
-    if not hops or hops[-1] is not frames[-1]:
-        hops.append(frames[-1])
-    return " > ".join(f"{os.path.basename(f.filename)}:{f.name}:{f.lineno}" for f in hops)
 
 class BaseWorker():
     media_type_mappings = {}
@@ -117,7 +105,7 @@ class BaseWorker():
         # Formats an exception into safe, structured log fields for subclasses to use: its type, MySQL
         # error codes, and the code locations it passed through. The message is left out, since
         # exception messages can echo user identifiers or row values back
-        return f"error_type={type(e).__name__} errno={getattr(e, 'errno', None)} sqlstate={getattr(e, 'sqlstate', None)} stack={_exception_stack(e)}"
+        return f"error_type={type(e).__name__} errno={getattr(e, 'errno', None)} sqlstate={getattr(e, 'sqlstate', None)} stack={exception_stack(e)}"
 
     def _failure_response(self, exception, function, step, **context):
         # Builds the response every worker method returns when it fails:

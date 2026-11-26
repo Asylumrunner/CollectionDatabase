@@ -144,7 +144,7 @@ SKIP_AUTH=true DEV_USER_ID=<your clerk_user_id> python api.py
 
 The **Python Debugger: Flask** configuration in `.vscode/launch.json` sets both variables already, so launching from VS Code's Run and Debug panel works as is. Running `python api.py` or `flask run` from a terminal doesn't use that configuration, so you have to set the variables yourself.
 
-If you forget `SKIP_AUTH`, every authenticated endpoint returns 401 and the server log shows `AttributeError: 'NoneType' object has no attribute 'get'` from `Utilities/AuthenticateRequest.py`. Clerk found no valid token in the request, so it returned no token payload to read the user ID from.
+If you forget `SKIP_AUTH`, every authenticated endpoint returns 401 with `err_msg` set to `Not authenticated`, and the server log shows `Request not authenticated: reason=session-token-missing`. The reason is Clerk's explanation of why it rejected the request, such as `token-expired` or `token-invalid`. Reasons that point at a server-side problem, such as `secret-key-missing`, are logged as errors instead of warnings. When `SKIP_AUTH` is on, the first request logs a warning that authentication is disabled.
 
 ## Running Tests
 

@@ -106,7 +106,6 @@ def test_token_for_one_user_cant_read_anothers_data(anonymous, client_as, db):  
     assert response.get_json()["data"] == []
 
 
-@pytest.mark.xfail(reason="B15: with no token the 401 message is a NoneType AttributeError")
 def test_no_token_message_reads_as_an_auth_failure(anonymous):  # F-AUTH-7
     assert "NoneType" not in anonymous.get("/collection").get_json()["err_msg"]
 
