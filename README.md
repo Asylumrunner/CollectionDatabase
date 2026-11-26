@@ -133,6 +133,17 @@ docker run -p 3306:3306 \
   collectiondb-mysql
 ```
 
+### Running the API locally
+Every endpoint except `GET /` and `POST /webhooks/clerk` expects a Clerk session token. If you call the API with curl, Postman or a browser, you won't have one, so you need to turn authentication off with `SKIP_AUTH` and tell the API which user to act as with `DEV_USER_ID` (see [Configuration](https://www.github.com/Asylumrunner/CollectionDatabase#configuration)):
+```bash
+SKIP_AUTH=true DEV_USER_ID=<your clerk_user_id> python api.py
+```
+`DEV_USER_ID` must match a `clerk_user_id` in the `users` table.
+
+The **Python Debugger: Flask** configuration in `.vscode/launch.json` sets both variables already, so launching from VS Code's Run and Debug panel works as is. Running `python api.py` or `flask run` from a terminal doesn't use that configuration, so you have to set the variables yourself.
+
+If you forget `SKIP_AUTH`, every authenticated endpoint returns 401 and the server log shows `AttributeError: 'NoneType' object has no attribute 'get'` from `Utilities/AuthenticateRequest.py`. Clerk found no valid token in the request, so it returned no token payload to read the user ID from.
+
 ## Running Tests
 
 The tests come in two tiers:
