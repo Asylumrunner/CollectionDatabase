@@ -35,6 +35,11 @@ def init():
 
 workers = init()
 
+######################################
+##### REQUEST-WRAPPING FUNCTIONS #####
+######################################
+
+
 @app.before_request
 def generate_request_id():
     g.request_id = uuid.uuid4().hex[:16]
@@ -64,6 +69,12 @@ def handle_unexpected_exception(e):
     logging.error(f"Unhandled exception: route={request.url_rule.rule if request.url_rule else None} error_type={type(e).__name__} stack={exception_stack(e)}")
     return create_response(False, 500, None, [], "Internal server error")
 
+
+######################################
+######## STANDALONE ENDPOINTS ########
+######################################
+
+
 @app.route('/', methods=['GET'])
 def health_check():
     return create_response(True, 200, ["Health Check Passed!"])
@@ -92,11 +103,16 @@ def search_for_item(title, user_id=None):
         return worker_failure(lookup_response)
     else:
         return create_response(True, 200, lookup_response['next_page'], lookup_response['items'])
+    
+
+######################################
+######## COLLECTION ENDPOINTS ########
+######################################
+
 
 @app.route('/collection', methods=['GET'])
 @authenticated_endpoint
 def get_collection(user_id=None):
-    logging.info("Collecting user collection")
     page = parse_page(request.args)
     if page is None:
         return create_response(False, 400, None, [], "page must be an integer")
@@ -118,17 +134,6 @@ def add_item_to_collection(user_id=None):
     item = item_from_payload(data)
 
     result = workers['ITEM'].add_item_to_collection(user_id, item)
-    return respond(result)
-
-
-@app.route('/collection/item', methods=['DELETE'])
-@authenticated_endpoint
-def remove_item_from_collection(user_id=None):
-    data = request.get_json()
-    if not data or 'id' not in data:
-        return create_response(False, 400, None, [], "Missing required field: id")
-
-    result = workers['ITEM'].remove_item_from_collection(user_id, data['id'])
     return respond(result)
 
 
@@ -156,6 +161,17 @@ def add_items_to_collection(user_id=None):
     return create_response(True, 200, None, result)
 
 
+@app.route('/collection/item', methods=['DELETE'])
+@authenticated_endpoint
+def remove_item_from_collection(user_id=None):
+    data = request.get_json()
+    if not data or 'id' not in data:
+        return create_response(False, 400, None, [], "Missing required field: id")
+
+    result = workers['ITEM'].remove_item_from_collection(user_id, data['id'])
+    return respond(result)
+
+
 @app.route('/collection/items', methods=['DELETE'])
 @authenticated_endpoint
 def remove_items_from_collection(user_id=None):
@@ -165,6 +181,47 @@ def remove_items_from_collection(user_id=None):
 
     result = workers['ITEM'].remove_items_from_collection(user_id, data['ids'])
     return respond(result)
+
+
+################################
+######## LIST ENDPOINTS ########
+################################
+
+
+@app.route('/lists', methods=['POST'])
+@authenticated_endpoint
+def create_list(user_id=None):
+    data = request.get_json()
+    if not data or 'list_name' not in data:
+        return create_response(False, 400, None, [], "Missing required field: list_name")
+
+    result = workers['LIST'].create_list(user_id, data['list_name'])
+    return respond(result)
+
+
+@app.route('/lists/<int:list_id>', methods=['GET'])
+@authenticated_endpoint
+def get_list(list_id, user_id=None):
+    page = parse_page(request.args)
+    if page is None:
+        return create_response(False, 400, None, [], "page must be an integer")
+
+    result = workers['LIST'].get_list(user_id, list_id, page)
+    return respond_with_page(result, not_found_msg="List not found")
+
+
+@app.route('/lists', methods=['GET'])
+@authenticated_endpoint
+def get_all_lists(user_id=None):
+    result = workers['LIST'].get_user_lists(user_id)
+    return respond(result, key='lists')
+
+
+@app.route('/lists/item/<int:item_id>', methods=['GET'])
+@authenticated_endpoint
+def get_lists_containing_item(item_id, user_id=None):
+    result = workers['LIST'].get_lists_containing_item(user_id, item_id)
+    return respond(result, key='lists')
 
 
 @app.route('/lists/names', methods=['GET'])
@@ -197,13 +254,6 @@ def add_item_to_list(list_id, user_id=None):
     return respond(list_result, not_found_msg="List not found")
 
 
-@app.route('/lists/item/<int:item_id>', methods=['GET'])
-@authenticated_endpoint
-def get_lists_containing_item(item_id, user_id=None):
-    result = workers['LIST'].get_lists_containing_item(user_id, item_id)
-    return respond(result, key='lists')
-
-
 @app.route('/lists/<int:list_id>/item', methods=['DELETE'])
 @authenticated_endpoint
 def remove_item_from_list(list_id, user_id=None):
@@ -213,17 +263,6 @@ def remove_item_from_list(list_id, user_id=None):
 
     list_result = workers['LIST'].remove_item_from_list(user_id, list_id, data['id'])
     return respond(list_result, not_found_msg="List not found")
-
-
-@app.route('/lists/<int:list_id>', methods=['GET'])
-@authenticated_endpoint
-def get_list(list_id, user_id=None):
-    page = parse_page(request.args)
-    if page is None:
-        return create_response(False, 400, None, [], "page must be an integer")
-
-    result = workers['LIST'].get_list(user_id, list_id, page)
-    return respond_with_page(result, not_found_msg="List not found")
 
 
 @app.route('/lists/<int:list_id>/rename', methods=['PUT'])
@@ -249,22 +288,9 @@ def delete_list(list_id, user_id=None):
     return create_response(True, 200, None, [])
 
 
-@app.route('/lists', methods=['GET'])
-@authenticated_endpoint
-def get_user_lists(user_id=None):
-    result = workers['LIST'].get_user_lists(user_id)
-    return respond(result, key='lists')
-
-
-@app.route('/lists', methods=['POST'])
-@authenticated_endpoint
-def create_list(user_id=None):
-    data = request.get_json()
-    if not data or 'list_name' not in data:
-        return create_response(False, 400, None, [], "Missing required field: list_name")
-
-    result = workers['LIST'].create_list(user_id, data['list_name'])
-    return respond(result)
+################################
+########### WEBHOOKS ###########
+################################
 
 
 @app.route('/webhooks/clerk', methods=['POST'])
