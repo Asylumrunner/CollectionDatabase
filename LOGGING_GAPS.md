@@ -11,18 +11,9 @@ The fixes so far established a few rules. New logging should follow them:
 * **Use `_error_log_fields(e)` for worker failures.** It's defined in `BaseWorker` and produces `error_type=… errno=… sqlstate=… stack=ItemWorker.py:add_item:66`. Outside the workers, `exception_stack(e)` in [Utilities/ExceptionStack.py](Utilities/ExceptionStack.py) gives the same stack on its own.
 * **Pass anything that might contain a request URL through `redact_secrets()`** ([Utilities/RedactSecrets.py](Utilities/RedactSecrets.py)) before logging it. TMDB and Discogs take their API keys as query parameters, and `requests` puts the full URL into its exception messages.
 * **Log each failure once,** in the method that handles it.
+* **Don't add request IDs by hand.** A filter in [api.py](api.py) stamps every log line with the current request's ID, and each response returns it in a `Request-Id` header. Work handed to a thread pool needs `map_in_request_context` (in [Workers/SearchWorker.py](Workers/SearchWorker.py)) to keep the ID; a bare `executor.map` loses it.
 
-## 1. No request-level logging or request IDs
-
-**Priority: medium**
-
-Nothing logs a summary line for each request, with method, path, status code and duration. [api.py](api.py) has no `before_request` or `after_request` hooks and no error handlers.
-
-The workers deliberately leave user identifiers out of their log lines. That means there's also nothing to connect the lines written while handling a single request. When several requests run at once, you can't tell which worker log lines belong together, or which request produced a given error.
-
-**Suggested fix:** generate a request ID at the start of each request (or reuse Lambda's `aws_request_id` when deployed there). Attach it to every log record, for example with a `logging.Filter` that reads it from `flask.g`. Log one summary line when each request finishes. A request ID identifies no one, so it fits the rule above.
-
-## 2. External API failures are mostly invisible
+## 1. External API failures are mostly invisible
 
 **Priority: medium**
 
@@ -39,7 +30,7 @@ The workers deliberately leave user identifiers out of their log lines. That mea
 * Log a warning with a count when detail lookups are dropped.
 * Add a timeout to every outbound request. Jikan accepts a custom `requests.Session`. The Discogs client has no timeout option, so it needs a small custom fetcher.
 
-## 3. A failed media type load is never retried
+## 2. A failed media type load is never retried
 
 **Priority: medium (also a bug)**
 
@@ -57,17 +48,17 @@ Two related gaps:
 * Catch configuration errors in `_initialize_pool` and log which setting is missing, without its value.
 * Warn when no media types are loaded.
 
-## 4. Client errors (400s) are logged inconsistently
+## 3. Client errors (400s) don't say why
 
 **Priority: low**
 
-Most 400 responses in [api.py](api.py) aren't logged at all: missing required fields, a non-integer `page`, a request body of the wrong shape. The search route is the exception. It logs its 400s (no `media_type`, or an unrecognized one) at ERROR, which puts client mistakes alongside real server failures.
+Every 400 now gets a `Request finished … status=400` summary line, but most don't log the reason: missing required fields, a non-integer `page`, a request body of the wrong shape. The search route is the exception. It logs its 400s (no `media_type`, or an unrecognized one) at ERROR, which puts client mistakes alongside real server failures.
 
-There are also two INFO lines that run before the request has been validated, in `lookup_data` and `get_collection`.
+There's also an INFO line in `get_collection` that runs before the request has been validated.
 
-**Suggested fix:** log every 400 at INFO or WARNING with the route and the reason, never at ERROR. Once item 1 is done, the request summary line covers most of this.
+**Suggested fix:** log the reason for each 400 at INFO or WARNING, never at ERROR. The summary line already gives the route and status.
 
-## 5. Smaller consistency issues
+## 4. Smaller consistency issues
 
 **Priority: low**
 
