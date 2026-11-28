@@ -70,7 +70,7 @@ def health_check():
 
 @app.route('/search/<title>', methods=['GET'])
 @authenticated_endpoint
-def lookup_data(title, user_id=None):
+def search_for_item(title, user_id=None):
     media_type = request.args.get("media_type")
     pagination_key = request.args.get("page", None)
     if media_type == None:

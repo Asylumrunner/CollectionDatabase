@@ -2,12 +2,10 @@ import logging
 import flask
 from flask import g
 
-
 class RequestIdFilter(logging.Filter):
     def filter(self, record):
         record.request_id = g.get("request_id", "-") if flask.has_app_context() else "-"
         return True
-
 
 def configure_logging():
     logging.basicConfig(level=logging.DEBUG, format='%(asctime)s %(levelname)s [%(request_id)s] %(name)s: %(message)s')
