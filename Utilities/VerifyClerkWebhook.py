@@ -1,6 +1,7 @@
 from svix.webhooks import Webhook, WebhookVerificationError
 from Workers.secrets import secrets
-from flask import request, jsonify
+from Utilities.Responses import create_response
+from flask import request
 from functools import wraps
 import logging
 
@@ -34,35 +35,23 @@ def verify_clerk_webhook(f):
             missing_headers = [k for k, v in headers.items() if not v]
             if missing_headers:
                 logger.warning(f"Missing webhook headers: {missing_headers}")
-                return jsonify({
-                    'status': 'FAILURE',
-                    'err_msg': f"Missing required headers: {', '.join(missing_headers)}"
-                }), 400
+                return create_response(False, 400, None, [], f"Missing required headers: {', '.join(missing_headers)}")
 
             # Verify the webhook signature
             webhook_secret = secrets.get('CLERK_WEBHOOK_SECRET')
             if not webhook_secret:
                 logger.error("CLERK_WEBHOOK_SECRET not configured")
-                return jsonify({
-                    'status': 'FAILURE',
-                    'err_msg': "Webhook secret not configured"
-                }), 500
+                return create_response(False, 500, None, [], "Webhook secret not configured")
 
             wh = Webhook(webhook_secret)
             verified_payload = wh.verify(payload, headers)
 
         except WebhookVerificationError as e:
             logger.warning(f"Webhook verification failed: {e}")
-            return jsonify({
-                'status': 'FAILURE',
-                'err_msg': "Invalid webhook signature"
-            }), 400
+            return create_response(False, 400, None, [], "Invalid webhook signature")
         except Exception as e:
             logger.error(f"Unexpected error verifying webhook: {e}")
-            return jsonify({
-                'status': 'FAILURE',
-                'err_msg': "Error processing webhook"
-            }), 500
+            return create_response(False, 500, None, [], "Error processing webhook")
 
         # Separate from the try above so handler errors aren't reported as verification failures
         kwargs['payload'] = verified_payload
@@ -70,9 +59,6 @@ def verify_clerk_webhook(f):
             return f(*args, **kwargs)
         except Exception:
             logger.exception("Webhook handler failed")
-            return jsonify({
-                'status': 'FAILURE',
-                'err_msg': "Error processing webhook"
-            }), 500
+            return create_response(False, 500, None, [], "Error processing webhook")
 
     return decorated_function

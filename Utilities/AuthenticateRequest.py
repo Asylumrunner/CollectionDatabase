@@ -1,8 +1,9 @@
 from Workers.secrets import secrets
 from Utilities.ExceptionStack import exception_stack
+from Utilities.Responses import create_response
 from clerk_backend_api import Clerk
 from clerk_backend_api.security.types import AuthenticateRequestOptions
-from flask import request, jsonify
+from flask import request
 from functools import wraps
 import logging
 import os
@@ -86,15 +87,7 @@ def authenticated_endpoint(f):
         except Exception:
             # is_signed_in has already logged why. The client gets a generic message, since the
             # exception text can describe server internals
-            response_object = {
-                'status': 'FAILURE',
-                'data': [],
-                'err_msg': 'Not authenticated',
-                'next_page': ''
-            }
-            response = jsonify(response_object)
-            response.status_code = 401
-            return response
+            return create_response(False, 401, '', [], 'Not authenticated')
 
         # Called outside the try so that errors raised by the view itself
         # propagate normally instead of being reported as 401 Unauthorized

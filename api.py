@@ -8,26 +8,17 @@ from Workers.SearchWorker import SearchWorker
 from Workers.ItemWorker import ItemWorker
 from Workers.UserWorker import UserWorker
 from Workers.ListWorker import ListWorker
-from DataClasses.item import Item
 from Utilities.AuthenticateRequest import authenticated_endpoint
 from Utilities.VerifyClerkWebhook import verify_clerk_webhook
 from Utilities.ExceptionStack import exception_stack
-from dataclasses import asdict
+from Utilities.RequestParsing import missing_item_fields, item_from_payload, parse_page
+from Utilities.Responses import create_response, public_error_message, worker_failure, respond, respond_with_page
+from Utilities.LoggingSetup import configure_logging
 from werkzeug.exceptions import HTTPException
 
 import logging
 
-class RequestIdFilter(logging.Filter):
-    def filter(self, record):
-        record.request_id = g.get("request_id", "-") if flask.has_app_context() else "-"
-        return True
-
-logging.basicConfig(level=logging.DEBUG, format='%(asctime)s %(levelname)s [%(request_id)s] %(name)s: %(message)s')
-# urllib3 logs every request URL, query string included, at DEBUG. TMDB and Discogs take their API
-# keys as query parameters, so keep it quiet whatever level the rest of the app runs at
-logging.getLogger("urllib3").setLevel(logging.WARNING)
-for handler in logging.getLogger().handlers:
-    handler.addFilter(RequestIdFilter())
+configure_logging()
 
 app = flask.Flask(__name__)
 # Browsers hide non-standard response headers from cross-origin JavaScript unless they're exposed,
@@ -105,18 +96,12 @@ def lookup_data(title, user_id=None):
 @app.route('/collection', methods=['GET'])
 @authenticated_endpoint
 def get_collection(user_id=None):
-    try:
-        logging.info("Collecting user collection")
-        page = int(request.args.get('page', 1))
-    except ValueError:
+    logging.info("Collecting user collection")
+    page = parse_page(request.args)
+    if page is None:
         return create_response(False, 400, None, [], "page must be an integer")
 
-    result = workers['ITEM'].get_user_collection(user_id, page)
-
-    if not result['passed']:
-        return worker_failure(result)
-
-    return create_response(True, 200, result['next_page'], [asdict(item) for item in result['items']])
+    return respond_with_page(workers['ITEM'].get_user_collection(user_id, page))
 
 
 @app.route('/collection/item', methods=['PUT'])
@@ -126,39 +111,14 @@ def add_item_to_collection(user_id=None):
     if not data:
         return create_response(False, 400, None, [], "No JSON body provided")
 
-    required_fields = ['title', 'media_type', 'release_year', 'img_link', 'original_api_id', 'created_by']
-    missing_fields = [field for field in required_fields if field not in data]
+    missing_fields = missing_item_fields(data)
     if missing_fields:
         return create_response(False, 400, None, [], f"Missing required fields: {', '.join(missing_fields)}")
 
-    item = Item(
-        id=data.get('id', ''),
-        title=data['title'],
-        media_type=data['media_type'],
-        release_year=data['release_year'],
-        img_link=data['img_link'],
-        original_api_id=data['original_api_id'],
-        created_by=data['created_by'],
-        isbn=data.get('isbn'),
-        printing_year=data.get('printing_year'),
-        lang=data.get('lang'),
-        summary=data.get('summary'),
-        duration=data.get('duration'),
-        min_players=data.get('min_players'),
-        max_players=data.get('max_players'),
-        episodes=data.get('episodes'),
-        platforms=data.get('platforms'),
-        platform_igdb_ids=data.get('platform_igdb_ids'),
-        tracklist=data.get('tracklist'),
-        genres=data.get('genres')
-    )
+    item = item_from_payload(data)
 
     result = workers['ITEM'].add_item_to_collection(user_id, item)
-
-    if not result['passed']:
-        return worker_failure(result)
-    else:
-        return create_response(True, 200, None, result)
+    return respond(result)
 
 
 @app.route('/collection/item', methods=['DELETE'])
@@ -169,11 +129,7 @@ def remove_item_from_collection(user_id=None):
         return create_response(False, 400, None, [], "Missing required field: id")
 
     result = workers['ITEM'].remove_item_from_collection(user_id, data['id'])
-
-    if not result['passed']:
-        return worker_failure(result)
-    else:
-        return create_response(True, 200, None, result)
+    return respond(result)
 
 
 @app.route('/collection/items', methods=['PUT'])
@@ -183,33 +139,12 @@ def add_items_to_collection(user_id=None):
     if not data or not isinstance(data, list) or len(data) == 0:
         return create_response(False, 400, None, [], "Request body must be a non-empty list of items")
 
-    required_fields = ['title', 'media_type', 'release_year', 'img_link', 'original_api_id', 'created_by']
     items = []
     for i, item_data in enumerate(data):
-        missing_fields = [field for field in required_fields if field not in item_data]
+        missing_fields = missing_item_fields(item_data)
         if missing_fields:
             return create_response(False, 400, None, [], f"Item at index {i} missing required fields: {', '.join(missing_fields)}")
-        items.append(Item(
-            id=item_data.get('id', ''),
-            title=item_data['title'],
-            media_type=item_data['media_type'],
-            release_year=item_data['release_year'],
-            img_link=item_data['img_link'],
-            original_api_id=item_data['original_api_id'],
-            created_by=item_data['created_by'],
-            isbn=item_data.get('isbn'),
-            printing_year=item_data.get('printing_year'),
-            lang=item_data.get('lang'),
-            summary=item_data.get('summary'),
-            duration=item_data.get('duration'),
-            min_players=item_data.get('min_players'),
-            max_players=item_data.get('max_players'),
-            episodes=item_data.get('episodes'),
-            platforms=item_data.get('platforms'),
-            platform_igdb_ids=item_data.get('platform_igdb_ids'),
-            tracklist=item_data.get('tracklist'),
-            genres=item_data.get('genres')
-        ))
+        items.append(item_from_payload(item_data))
 
     result = workers['ITEM'].add_items_to_collection(user_id, items)
 
@@ -229,20 +164,14 @@ def remove_items_from_collection(user_id=None):
         return create_response(False, 400, None, [], "Request body must contain a non-empty 'ids' list")
 
     result = workers['ITEM'].remove_items_from_collection(user_id, data['ids'])
-
-    if not result['passed']:
-        return worker_failure(result)
-    return create_response(True, 200, None, result)
+    return respond(result)
 
 
 @app.route('/lists/names', methods=['GET'])
 @authenticated_endpoint
 def get_list_names(user_id=None):
     result = workers['LIST'].get_list_names(user_id)
-
-    if not result['passed']:
-        return worker_failure(result)
-    return create_response(True, 200, None, result['lists'])
+    return respond(result, key='lists')
 
 
 @app.route('/lists/<int:list_id>/item', methods=['PUT'])
@@ -252,32 +181,11 @@ def add_item_to_list(list_id, user_id=None):
     if not data:
         return create_response(False, 400, None, [], "No JSON body provided")
 
-    required_fields = ['title', 'media_type', 'release_year', 'img_link', 'original_api_id', 'created_by']
-    missing_fields = [field for field in required_fields if field not in data]
+    missing_fields = missing_item_fields(data)
     if missing_fields:
         return create_response(False, 400, None, [], f"Missing required fields: {', '.join(missing_fields)}")
 
-    item = Item(
-        id=data.get('id', ''),
-        title=data['title'],
-        media_type=data['media_type'],
-        release_year=data['release_year'],
-        img_link=data['img_link'],
-        original_api_id=data['original_api_id'],
-        created_by=data['created_by'],
-        isbn=data.get('isbn'),
-        printing_year=data.get('printing_year'),
-        lang=data.get('lang'),
-        summary=data.get('summary'),
-        duration=data.get('duration'),
-        min_players=data.get('min_players'),
-        max_players=data.get('max_players'),
-        episodes=data.get('episodes'),
-        platforms=data.get('platforms'),
-        platform_igdb_ids=data.get('platform_igdb_ids'),
-        tracklist=data.get('tracklist'),
-        genres=data.get('genres')
-    )
+    item = item_from_payload(data)
 
     add_item_result = workers['ITEM'].add_item(item)
     if not add_item_result['passed']:
@@ -286,21 +194,14 @@ def add_item_to_list(list_id, user_id=None):
     item_id = add_item_result['Item'].id
 
     list_result = workers['LIST'].add_item_to_list(user_id, list_id, item_id)
-    if not list_result['passed']:
-        return worker_failure(list_result)
-    if list_result['not_found']:
-        return create_response(False, 404, None, [], "List not found")
-    return create_response(True, 200, None, list_result)
+    return respond(list_result, not_found_msg="List not found")
 
 
 @app.route('/lists/item/<int:item_id>', methods=['GET'])
 @authenticated_endpoint
 def get_lists_containing_item(item_id, user_id=None):
     result = workers['LIST'].get_lists_containing_item(user_id, item_id)
-
-    if not result['passed']:
-        return worker_failure(result)
-    return create_response(True, 200, None, result['lists'])
+    return respond(result, key='lists')
 
 
 @app.route('/lists/<int:list_id>/item', methods=['DELETE'])
@@ -311,28 +212,19 @@ def remove_item_from_list(list_id, user_id=None):
         return create_response(False, 400, None, [], "Missing required field: id")
 
     list_result = workers['LIST'].remove_item_from_list(user_id, list_id, data['id'])
-    if not list_result['passed']:
-        return worker_failure(list_result)
-    if list_result['not_found']:
-        return create_response(False, 404, None, [], "List not found")
-    return create_response(True, 200, None, list_result)
+    return respond(list_result, not_found_msg="List not found")
 
 
 @app.route('/lists/<int:list_id>', methods=['GET'])
 @authenticated_endpoint
 def get_list(list_id, user_id=None):
-    try:
-        page = int(request.args.get('page', 1))
-    except ValueError:
+    page = parse_page(request.args)
+    if page is None:
         return create_response(False, 400, None, [], "page must be an integer")
 
     result = workers['LIST'].get_list(user_id, list_id, page)
+    return respond_with_page(result, not_found_msg="List not found")
 
-    if not result['passed']:
-        return worker_failure(result)
-    if result['not_found']:
-        return create_response(False, 404, None, [], "List not found")
-    return create_response(True, 200, result['next_page'], [asdict(item) for item in result['items']])
 
 @app.route('/lists/<int:list_id>/rename', methods=['PUT'])
 @authenticated_endpoint
@@ -342,13 +234,7 @@ def rename_list(list_id, user_id=None):
         return create_response(False, 400, None, [], "Missing required field: list_name")
 
     result = workers['LIST'].change_list_name(user_id, list_id, data['list_name'])
-
-    if not result['passed']:
-        return worker_failure(result)
-    if result['not_found']:
-        return create_response(False, 404, None, [], "List not found")
-    return create_response(True, 200, None, result)
-
+    return respond(result, not_found_msg="List not found")
 
 
 @app.route('/lists/<int:list_id>', methods=['DELETE'])
@@ -367,10 +253,7 @@ def delete_list(list_id, user_id=None):
 @authenticated_endpoint
 def get_user_lists(user_id=None):
     result = workers['LIST'].get_user_lists(user_id)
-
-    if not result['passed']:
-        return worker_failure(result)
-    return create_response(True, 200, None, result['lists'])
+    return respond(result, key='lists')
 
 
 @app.route('/lists', methods=['POST'])
@@ -381,10 +264,7 @@ def create_list(user_id=None):
         return create_response(False, 400, None, [], "Missing required field: list_name")
 
     result = workers['LIST'].create_list(user_id, data['list_name'])
-
-    if not result['passed']:
-        return worker_failure(result)
-    return create_response(True, 200, None, result)
+    return respond(result)
 
 
 @app.route('/webhooks/clerk', methods=['POST'])
@@ -408,50 +288,17 @@ def clerk_webhook(payload=None):
             last_name = data.get('last_name', '')
             username = f"{first_name} {last_name}".strip() or 'Unknown'
 
-        result = workers['USER'].create_user(clerk_user_id, username, webhook_id)
-
-        if result['passed']:
-            return create_response(True, 200, None, result)
-        else:
-            return worker_failure(result)
+        return respond(workers['USER'].create_user(clerk_user_id, username, webhook_id))
 
     elif event_type == 'user.deleted':
         clerk_user_id = data.get('id')
-
-        result = workers['USER'].delete_user(clerk_user_id, webhook_id)
-
-        if result['passed']:
-            return create_response(True, 200, None, result)
-        else:
-            return worker_failure(result)
+        return respond(workers['USER'].delete_user(clerk_user_id, webhook_id))
 
     else:
         # Ignore other event types
         logging.info(f"Ignoring unhandled Clerk webhook event: {event_type}")
         return create_response(True, 200, None, {'message': f'Event {event_type} ignored'})
 
-
-def public_error_message(failure):
-    # Worker failure objects hold tracebacks and call arguments (including user IDs), which stay
-    # in the server logs. Clients only get the step that failed.
-    step = failure.get('step_failed') if isinstance(failure, dict) else None
-    return f"Internal server error at step '{step}'" if step else "Internal server error"
-
-
-def worker_failure(failure):
-    return create_response(False, 500, None, [], public_error_message(failure))
-
-
-def create_response(passed, status_code, page, data=[], err_msg=''):
-    response_object = {
-        'status': 'SUCCESS' if passed else 'FAILURE',
-        'data': data,
-        'err_msg': err_msg,
-        'next_page': page
-    }
-    response = flask.jsonify(response_object)
-    response.status_code = status_code
-    return response
 
 if __name__ == "__main__":
     app.run(host='0.0.0.0')
