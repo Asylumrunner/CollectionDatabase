@@ -8,6 +8,7 @@ from mysql.connector.errors import PoolError
 import json
 import logging
 import os
+from pathlib import Path
 import sys
 import time
 import traceback
@@ -15,7 +16,7 @@ import traceback
 # Set up logging
 logger = logging.getLogger(__name__)
 
-_LOCAL_CONFIG_PATH = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'local_db_config.json')
+_LOCAL_CONFIG_PATH = Path(__file__).resolve().parent.parent / 'local_db_config.json'
 
 _POOL_SIZE = 5
 # Thresholds above which connection activity is logged as a warning
