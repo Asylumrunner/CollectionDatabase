@@ -7,6 +7,7 @@ Known gaps in the API's logging, roughly in the order they're worth fixing. A lo
 The fixes so far established a few rules. New logging should follow them:
 
 * **No user identifiers in logs.** That means Clerk IDs, email addresses, list names, and anything else a user typed or that identifies them. Exception messages can contain these values (MySQL errors echo row values, for example), so worker failures log only the error type, MySQL error codes, and a code-location stack.
+  * **Exception: search queries and search options may be logged,** since they're the main thing needed to debug search. This covers only what's sent to the search endpoint, not other user-typed text such as list names, and never anything tied to who the user is. Log them with `!r` so a query containing a newline can't forge a log line.
 * **Use `_error_log_fields(e)` for worker failures.** It's defined in `BaseWorker` and produces `error_type=… errno=… sqlstate=… stack=ItemWorker.py:add_item:66`. Outside the workers, `exception_stack(e)` in [Utilities/ExceptionStack.py](Utilities/ExceptionStack.py) gives the same stack on its own.
 * **Pass anything that might contain a request URL through `redact_secrets()`** ([Utilities/RedactSecrets.py](Utilities/RedactSecrets.py)) before logging it. TMDB and Discogs take their API keys as query parameters, and `requests` puts the full URL into its exception messages.
 * **Log each failure once,** in the method that handles it.
@@ -71,7 +72,6 @@ There are also two INFO lines that run before the request has been validated, in
 **Priority: low**
 
 * **Root logger instead of module loggers.** `SearchWorker` and `api.py` log through the root `logging` module instead of a module logger, unlike the other workers, so their lines don't say which module wrote them.
-* **Search errors have no stack.** The `SearchWorker` lookup error logs don't include the `stack=` field that the other workers' error logs have.
 * **"Search crashed" has no exception information.** `_log_search_result` logs it from a `finally` block, which has no access to the exception. Every lookup catches its own exceptions, so this line is rarely reached.
 * **The production config source isn't logged.** `_initialize_pool` logs when it uses `local_db_config.json`, but logs nothing when it reads the database settings from `secrets`.
 * **Dead code.** [Utilities/ValidateRequestInput.py](Utilities/ValidateRequestInput.py) isn't imported anywhere, so its logging never runs.

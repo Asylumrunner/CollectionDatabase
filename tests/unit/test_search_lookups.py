@@ -135,9 +135,10 @@ def test_movie_connection_errors_are_logged_without_the_api_key(search_worker, r
     result = search_worker.search_item("dune", "movie")
     assert result["passed"] is False
     assert "fake-tmdb-key" not in caplog.text
-    assert "MovieController at step fetch_results" in caplog.text
+    assert "function=lookup_movie step=fetch_results" in caplog.text
     assert "Search failed" in caplog.text
-    assert caplog.text.count("api_key=REDACTED&query=dune") == 2
+    # Logged once, by the lookup; the "Search failed" summary line leaves the message out
+    assert caplog.text.count("api_key=REDACTED&query=dune") == 1
 
 
 def test_movie_options_are_filtered(search_worker, rsps):  # U-MOV-1
@@ -541,7 +542,7 @@ def test_music_search_errors_are_logged_without_the_token(search_worker, caplog)
     stub_discogs(search_worker, search_error=requests.exceptions.ConnectionError(DISCOGS_ERROR))
     search_worker.search_item("x", "album")
     assert "fake-discogs-token" not in caplog.text
-    assert caplog.text.count("token=REDACTED") == 2
+    assert caplog.text.count("token=REDACTED") == 1
 
 
 def test_music_failed_master_is_logged_without_the_token(search_worker, caplog):  # U-MUS-6

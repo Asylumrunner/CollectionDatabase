@@ -1,6 +1,8 @@
 import flask
+import uuid
 from flask_cors import CORS
 from flask import request
+from flask import g
 from Workers.SearchWorker import SearchWorker
 from Workers.ItemWorker import ItemWorker
 from Workers.UserWorker import UserWorker
@@ -12,10 +14,17 @@ from dataclasses import asdict
 
 import logging
 
-logging.basicConfig(level=logging.DEBUG, format='%(asctime)s %(levelname)s %(name)s: %(message)s')
+class RequestIdFilter(logging.Filter):
+    def filter(self, record):
+        record.request_id = g.get("request_id", "-") if flask.has_app_context() else "-"
+        return True
+
+logging.basicConfig(level=logging.DEBUG, format='%(asctime)s %(levelname)s [%(request_id)s] %(name)s: %(message)s')
 # urllib3 logs every request URL, query string included, at DEBUG. TMDB and Discogs take their API
 # keys as query parameters, so keep it quiet whatever level the rest of the app runs at
 logging.getLogger("urllib3").setLevel(logging.WARNING)
+for handler in logging.getLogger().handlers:
+    handler.addFilter(RequestIdFilter())
 
 app = flask.Flask(__name__)
 app.config['DEBUG'] = True
@@ -31,17 +40,24 @@ def init():
 
 workers = init()
 
+@app.before_request
+def generate_request_id():
+    g.request_id = uuid.uuid4().hex[:16]
+
+@app.after_request
+def append_request_id(response):
+    response.headers['Request-Id'] = g.get("request_id", "-")
+    return response
+
 @app.route('/', methods=['GET'])
 def health_check():
     return create_response(True, 200, ["Health Check Passed!"])
-
 
 @app.route('/search/<title>', methods=['GET'])
 @authenticated_endpoint
 def lookup_data(title, user_id=None):
     media_type = request.args.get("media_type")
     pagination_key = request.args.get("page", None)
-    logging.info(f'media_type provided with search request {media_type}')
     if media_type == None:
         logging.error("No media_type provided with request")
         return create_response(False, 400, None, [], "No media_type provided with request")
@@ -54,8 +70,6 @@ def lookup_data(title, user_id=None):
     for key, value in request.args.items():
         if key not in ['media_type', 'page']:
             search_options[key] = value
-
-    logging.info(f'Search options collected: {search_options}')
 
     lookup_response = workers['SEARCH'].search_item(title, media_type, pagination_key, search_options)
 

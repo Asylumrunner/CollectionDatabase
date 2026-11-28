@@ -49,8 +49,8 @@ def test_crashing_lookup_is_logged_and_propagates(search_worker, caplog):  # U-S
 
 @pytest.mark.parametrize("response, expected", [
     ({"passed": True, "items": [1, 2], "next_page": 2}, "Search succeeded"),
-    ({"passed": False, "exception": {"error_type": "ValueError", "error_message": "bad"}}, "error_type=ValueError"),
-    ({"passed": False, "exception": "plain string failure"}, "plain string failure"),
+    ({"passed": False, "step_failed": "parse", "exception": {"error_type": "ValueError", "error_message": "bad"}}, "step_failed=parse error_type=ValueError"),
+    ({"passed": False, "exception": "plain string failure"}, "error_type=None"),
 ])
 def test_search_result_logging_handles_each_outcome(search_worker, caplog, response, expected):  # U-SD-5
     caplog.set_level("INFO")

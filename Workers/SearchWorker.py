@@ -1,4 +1,4 @@
-import pprint
+import contextvars
 from Workers.secrets import secrets
 from Workers.BaseWorker import BaseWorker
 from DataClasses.item import Item
@@ -13,6 +13,12 @@ import requests
 from benedict import benedict
 from datetime import datetime
 import time
+
+def map_in_request_context(executor, fn, items):
+    # Maps in the main thread context to delegated threads
+    # Needed to insert Flask's g (and thus the request_id) to threads
+    futures = [executor.submit(contextvars.copy_context().run, fn, item) for item in items]
+    return [future.result() for future in futures]
 
 class SearchWorker(BaseWorker):
     MEDIA_TYPES = ("book", "movie", "video_game", "board_game", "rpg", "anime", "album")
@@ -120,9 +126,8 @@ class SearchWorker(BaseWorker):
         else:
             exception = response.get("exception")
             error_type = exception.get("error_type") if isinstance(exception, dict) else None
-            error_message = exception.get("error_message") if isinstance(exception, dict) else exception
-            # error_message is str(e), which for a failed HTTP request includes the URL and any key in it
-            logging.warning(f"Search failed: {summary} error_type={error_type} error_message={redact_secrets(error_message)!r}")
+            # The lookup that failed has already logged the error details, so this is only the summary line
+            logging.warning(f"Search failed: {summary} step_failed={response.get('step_failed')} error_type={error_type}")
         
     def lookup_book(self, title, pagination_key, search_options={}):
         response = {"items": [], "passed": False}
@@ -185,7 +190,7 @@ class SearchWorker(BaseWorker):
             response["passed"] = True
             response["next_page"] = int(pagination_key) + 1
         except Exception as e:
-            logging.error(f"Exception in lookup for title {title} in BookController at step {current_step}: {e}")
+            logging.error(f"Search lookup failed: function=lookup_book step={current_step} query={title!r} {self._error_log_fields(e)} error_message={redact_secrets(e)!r}")
             return self._failure_response(
                 e, "lookup_book", current_step,
                 title=title,
@@ -246,7 +251,7 @@ class SearchWorker(BaseWorker):
 
             current_step = "fetch_details"
             with concurrent.futures.ThreadPoolExecutor() as executor:
-                lookups = executor.map(self.movie_lookup, result_ids)
+                lookups = map_in_request_context(executor, self.movie_lookup, result_ids)
 
             for lookup in lookups:
                 response['items'].append(lookup)
@@ -255,7 +260,7 @@ class SearchWorker(BaseWorker):
             response["next_page"] = int(pagination_key) + 1
         except Exception as e:
             # TMDB's api_key is a query parameter, so a failed request's message contains it
-            logging.error(f"Exception in lookup for title {title} in MovieController at step {current_step}: {redact_secrets(e)}")
+            logging.error(f"Search lookup failed: function=lookup_movie step={current_step} query={title!r} {self._error_log_fields(e)} error_message={redact_secrets(e)!r}")
             return self._failure_response(
                 e, "lookup_movie", current_step,
                 title=title,
@@ -290,7 +295,7 @@ class SearchWorker(BaseWorker):
                     unix_timestamp = int(date_obj.timestamp())
                     where_conditions.append(f"first_release_date < {unix_timestamp}")
                 except ValueError:
-                    logging.warning(f"Invalid release_date_before format: {search_options['release_date_before']}")
+                    logging.warning(f"Invalid release_date_before format, expected MM/DD/YYYY: {search_options['release_date_before']!r}")
 
             if 'release_date_after' in search_options:
                 try:
@@ -298,7 +303,7 @@ class SearchWorker(BaseWorker):
                     unix_timestamp = int(date_obj.timestamp())
                     where_conditions.append(f"first_release_date > {unix_timestamp}")
                 except ValueError:
-                    logging.warning(f"Invalid release_date_after format: {search_options['release_date_after']}")
+                    logging.warning(f"Invalid release_date_after format, expected MM/DD/YYYY: {search_options['release_date_after']!r}")
 
             # Build complete where clause if we have conditions
             where_clause = f" where {' & '.join(where_conditions)};" if where_conditions else ""
@@ -334,7 +339,7 @@ class SearchWorker(BaseWorker):
             response["passed"] = True
         except Exception as e:
             request_body_info = request_body if 'request_body' in locals() else 'Not yet formed'
-            logging.error(f"Exception in lookup for title {title} in VideoGameController at step {current_step}: {e}. Request body: {request_body_info}")
+            logging.error(f"Search lookup failed: function=lookup_video_game step={current_step} query={title!r} {self._error_log_fields(e)} error_message={redact_secrets(e)!r} request_body={request_body_info!r}")
             return self._failure_response(
                 e, "lookup_video_game", current_step,
                 title=title,
@@ -355,7 +360,7 @@ class SearchWorker(BaseWorker):
 
             current_step = "fetch_details"
             with concurrent.futures.ThreadPoolExecutor() as executor:
-                lookups = executor.map(self.board_game_detail_lookup, root)
+                lookups = map_in_request_context(executor, self.board_game_detail_lookup, root)
 
             for lookup in lookups:
                 if lookup:
@@ -363,7 +368,7 @@ class SearchWorker(BaseWorker):
             response['next_page'] = int(pagination_key) + 1
             response["passed"] = True
         except Exception as e:
-            logging.error(f"Exception in lookup for title {title} in BoardGameController at step {current_step}: {e}")
+            logging.error(f"Search lookup failed: function=lookup_board_game step={current_step} query={title!r} {self._error_log_fields(e)} error_message={redact_secrets(e)!r}")
             return self._failure_response(
                 e, "lookup_board_game", current_step,
                 title=title,
@@ -404,7 +409,7 @@ class SearchWorker(BaseWorker):
 
             current_step = "fetch_details"
             with concurrent.futures.ThreadPoolExecutor() as executor:
-                lookups = executor.map(self.rpg_detail_lookup, root)
+                lookups = map_in_request_context(executor, self.rpg_detail_lookup, root)
 
             for lookup in lookups:
                 if lookup:
@@ -413,7 +418,7 @@ class SearchWorker(BaseWorker):
             response['next_page'] = int(pagination_key) + 1
             response['passed'] = True
         except Exception as e:
-            logging.error(f"Exception in lookup for title {title} in RPGController at step {current_step}: {e}")
+            logging.error(f"Search lookup failed: function=lookup_rpg step={current_step} query={title!r} {self._error_log_fields(e)} error_message={redact_secrets(e)!r}")
             return self._failure_response(
                 e, "lookup_rpg", current_step,
                 title=title,
@@ -483,7 +488,7 @@ class SearchWorker(BaseWorker):
             response['next_page'] = int(pagination_key) + 1
             response['passed'] = True
         except Exception as e:
-            logging.error(f"Exception in lookup for title {title} in AnimeController at step {current_step}: {e}")
+            logging.error(f"Search lookup failed: function=lookup_anime step={current_step} query={title!r} {self._error_log_fields(e)} error_message={redact_secrets(e)!r}")
             return self._failure_response(
                 e, "lookup_anime", current_step,
                 title=title,
@@ -584,7 +589,7 @@ class SearchWorker(BaseWorker):
             response['passed'] = True
         except Exception as e:
             # The Discogs client sends its token as a query parameter, so a failed request's message contains it
-            logging.error(f"Exception in lookup for album {album} in MusicController at step {current_step}: {redact_secrets(e)}")
+            logging.error(f"Search lookup failed: function=lookup_music step={current_step} query={album!r} {self._error_log_fields(e)} error_message={redact_secrets(e)!r}")
             return self._failure_response(
                 e, "lookup_music", current_step,
                 album=album,
