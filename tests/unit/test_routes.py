@@ -346,3 +346,41 @@ def test_deployed_logging_settings():  # U-API-24
     for stage in settings.values():
         assert stage["log_level"] == "INFO"
         assert stage["debug"] is False
+
+
+def test_responses_carry_a_request_id(client):  # U-API-25
+    first = client.get("/").headers.get("Request-Id")
+    second = client.get("/").headers.get("Request-Id")
+    assert first and second and first != second
+
+
+def test_request_id_is_readable_cross_origin(client):  # U-API-25
+    # Browsers hide headers from cross-origin JavaScript unless CORS exposes them
+    response = client.get("/", headers={"Origin": "https://frontend.example"})
+    exposed = [h.strip().lower() for h in response.headers.get("Access-Control-Expose-Headers", "").split(",")]
+    assert "request-id" in exposed
+
+
+def test_each_request_logs_a_summary_line(client, mock_workers, caplog):  # U-API-26
+    caplog.set_level("INFO")
+    mock_workers["LIST"].get_list.return_value = OK_PAGE
+    client.get("/lists/3")
+    assert "Request finished: method=GET route=/lists/<int:list_id> status=200 duration_ms=" in caplog.text
+
+
+def test_unmatched_routes_are_summarized_as_404s(client, caplog):  # U-API-26
+    caplog.set_level("INFO")
+    assert client.get("/nope").status_code == 404
+    assert "route=None status=404" in caplog.text
+
+
+def test_unhandled_exceptions_are_logged_and_summarized(client, mock_workers, caplog):  # U-API-27
+    caplog.set_level("INFO")
+    mock_workers["LIST"].get_list.side_effect = RuntimeError("secret row value")
+    response = client.get("/lists/3")
+    assert response.status_code == 500
+    assert response.get_json()["err_msg"] == "Internal server error"
+    assert response.headers.get("Request-Id")
+    assert "Unhandled exception: route=/lists/<int:list_id> error_type=RuntimeError stack=" in caplog.text
+    assert "route=/lists/<int:list_id> status=500" in caplog.text
+    assert "secret row value" not in caplog.text

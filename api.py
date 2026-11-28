@@ -1,4 +1,5 @@
 import flask
+import time
 import uuid
 from flask_cors import CORS
 from flask import request
@@ -10,7 +11,9 @@ from Workers.ListWorker import ListWorker
 from DataClasses.item import Item
 from Utilities.AuthenticateRequest import authenticated_endpoint
 from Utilities.VerifyClerkWebhook import verify_clerk_webhook
+from Utilities.ExceptionStack import exception_stack
 from dataclasses import asdict
+from werkzeug.exceptions import HTTPException
 
 import logging
 
@@ -27,8 +30,9 @@ for handler in logging.getLogger().handlers:
     handler.addFilter(RequestIdFilter())
 
 app = flask.Flask(__name__)
-app.config['DEBUG'] = True
-CORS(app)
+# Browsers hide non-standard response headers from cross-origin JavaScript unless they're exposed,
+# so the frontend can only read Request-Id (to report it with an error) if it's listed here
+CORS(app, expose_headers=["Request-Id"])
 
 def init():
     workers = {}
@@ -43,11 +47,31 @@ workers = init()
 @app.before_request
 def generate_request_id():
     g.request_id = uuid.uuid4().hex[:16]
+    g.request_start = time.perf_counter()
 
 @app.after_request
-def append_request_id(response):
+def log_and_tag_response(response):
+    # Also runs for unhandled exceptions, once Flask has turned them into a 500 response
     response.headers['Request-Id'] = g.get("request_id", "-")
+    start = g.get("request_start")
+    duration_ms = f"{(time.perf_counter() - start) * 1000:.0f}" if start is not None else "-"
+    # The route template (/lists/<int:list_id>) rather than the path, so requests group by route.
+    # There's no rule when nothing matched, as for a 404
+    route = request.url_rule.rule if request.url_rule else None
+    logging.info(f"Request finished: method={request.method} route={route} status={response.status_code} duration_ms={duration_ms}")
     return response
+
+@app.errorhandler(Exception)
+def handle_unexpected_exception(e):
+    # Without this, Flask's default handling logs the full exception message, which can echo row values
+    # or other user data. In debug mode (FLASK_DEBUG=1, as the VS Code launch config sets) it also
+    # re-raises to the server instead of building a 500, skipping the summary line and the request ID.
+    # This logs only the error type and code locations, and keeps the traceback out of the response body
+    if isinstance(e, HTTPException):
+        # 404s, 405s and the like are already proper responses
+        return e
+    logging.error(f"Unhandled exception: route={request.url_rule.rule if request.url_rule else None} error_type={type(e).__name__} stack={exception_stack(e)}")
+    return create_response(False, 500, None, [], "Internal server error")
 
 @app.route('/', methods=['GET'])
 def health_check():

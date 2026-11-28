@@ -142,6 +142,8 @@ SKIP_AUTH=true DEV_USER_ID=<your clerk_user_id> python api.py
 ```
 `DEV_USER_ID` must match a `clerk_user_id` in the `users` table.
 
+`python api.py` runs with Flask's debug mode off. For the auto-reloader and pretty-printed JSON while developing, run `flask --app api run --debug` instead (with the same variables). Don't turn debug mode on anywhere the server is reachable from other machines: it serves Werkzeug's interactive debugger, which can run arbitrary Python.
+
 The **Python Debugger: Flask** configuration in `.vscode/launch.json` sets both variables already, so launching from VS Code's Run and Debug panel works as is. Running `python api.py` or `flask run` from a terminal doesn't use that configuration, so you have to set the variables yourself.
 
 If you forget `SKIP_AUTH`, every authenticated endpoint returns 401 with `err_msg` set to `Not authenticated`, and the server log shows `Request not authenticated: reason=session-token-missing`. The reason is Clerk's explanation of why it rejected the request, such as `token-expired` or `token-invalid`. Reasons that point at a server-side problem, such as `secret-key-missing`, are logged as errors instead of warnings. When `SKIP_AUTH` is on, the first request logs a warning that authentication is disabled.
